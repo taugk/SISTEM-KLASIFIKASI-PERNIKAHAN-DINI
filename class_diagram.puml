@@ -1,0 +1,107 @@
+@startuml PernikahanDiniSystem
+
+
+
+class Pengguna {
+    - id: int
+    - username: String
+    - password: String
+    - nama: String
+    - peran: String
+    + login(): void
+    + logout(): void
+    + insert(): void
+    + update(): void
+    + delete(): void
+    + getById(id: int): Pengguna
+}
+note right of Pengguna
+  Menyimpan data akun pengguna sistem.
+  Peran menentukan hak akses:
+  - Admin
+  - Kepala KUA
+  - Penyuluh
+end note
+
+class DataPernikahan {
+    - id: int
+    - nama_suami: String
+    - nama_istri: String
+    - umur_suami: int
+    - umur_istri: int
+    - pendidikan_suami: String
+    - pendidikan_istri: String
+    - pekerjaan_suami: String
+    - pekerjaan_istri: String
+    - tanggal_pernikahan: Date
+    - kd_wilayah: String
+    + insert(): void
+    + update(): void
+    + delete(): void
+    + getById(id: int): DataPernikahan
+}
+
+class Wilayah {
+    - kd_wilayah: String
+    - provinsi: String
+    - kabupaten: String
+    - kecamatan: String
+    - desa: String
+    + insert(): void
+    + update(): void
+    + delete(): void
+    + getByKode(kd: String): Wilayah
+}
+
+class MateriEdukasi {
+    - id: int
+    - judul: String
+    - isi: Text
+    - tanggal_upload: Date
+    - pengguna_id: int
+    + insert(): void
+    + update(): void
+    + delete(): void
+    + getById(id: int): MateriEdukasi
+}
+
+class HasilKlasifikasi {
+    - id: int
+    - pernikahan_id: int
+    - kategori_pernikahan: String
+    - probabilitas: float
+    - confidence: float
+    - tanggal_klasifikasi: Date
+    + insert(): void
+    + getByPernikahan(id: int): HasilKlasifikasi
+}
+note right of HasilKlasifikasi::kategori_pernikahan
+  enum: Dini, Bukan Dini
+end note
+
+class ResikoWilayah {
+    - id: int
+    - kd_wilayah: String
+    - jumlah_pernikahan: int
+    - jumlah_dini: int
+    - tingkat_resiko: String
+    - periode: String
+    + insert(): void
+    + update(): void
+    + hitungResiko(): void
+    + getByKode(kd: String): ResikoWilayah
+}
+note right of ResikoWilayah::tingkat_resiko
+  enum: Tinggi, Sedang, Rendah
+end note
+
+
+
+'===================== RELASI =====================
+
+Pengguna "1" -- "many" MateriEdukasi : mengunggah
+Wilayah "1" -- "many" DataPernikahan : dimiliki oleh
+DataPernikahan "1" -- "1" HasilKlasifikasi : diklasifikasi
+Wilayah "1" -- "1" ResikoWilayah : memiliki
+
+@enduml
