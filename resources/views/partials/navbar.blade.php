@@ -93,7 +93,7 @@
           <div class="quick-actions-scroll scrollbar-outer">
             <div class="quick-actions-items">
               <div class="row m-0">
-                <a class="col-6 col-md-4 p-0" href="#">
+                <a id="openCalendar" class="col-6 col-md-4 p-0" href="#">
                   <div class="quick-actions-item">
                     <div class="avatar-item bg-danger rounded-circle"><i class="far fa-calendar-alt"></i></div>
                     <span class="text">Calendar</span>
@@ -110,7 +110,20 @@
       <li class="nav-item topbar-user dropdown hidden-caret">
         <a class="dropdown-toggle profile-pic" data-bs-toggle="dropdown" href="#">
           <div class="avatar-sm">
-            <img src="{{ asset('assets/img/profile.jpg') }}" alt="..." class="avatar-img rounded-circle" />
+            @php
+            $foto = session('pengguna.foto');
+            @endphp
+
+            @if (isset($foto) && file_exists(public_path('storage/foto/' . $foto)))
+                <img src="{{ asset('storage/foto/' . $foto) }}" alt="Foto Pengguna" class="avatar-img rounded-circle">
+            @else
+
+             <svg class="avatar-img rounded w-12 h-12 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
+        <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
+    </svg>
+            @endif
+
+
           </div>
           <span class="profile-username">
             <span class="op-7">Hi,</span>
@@ -122,12 +135,23 @@
             <li>
               <div class="user-box">
                 <div class="avatar-lg">
-                  <img src="{{ asset('assets/img/profile.jpg') }}" alt="image profile" class="avatar-img rounded" />
+                   @php
+                    $foto = session('pengguna.foto');
+                    @endphp
+
+                    @if (isset($foto) && file_exists(public_path('storage/foto/' . $foto)))
+                        <img src="{{ asset('storage/foto/' . $foto) }}" alt="Foto Pengguna" class="avatar-img rounded-circle">
+                    @else
+
+                    <svg class="avatar-img rounded w-12 h-12 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
+                    </svg>
+                    @endif
                 </div>
                 <div class="u-text">
                   <h4>{{ session('pengguna.nama', 'guest') }}</h4>
                   <p class="text-muted">{{ session('pengguna.role', 'guest') }}</p>
-                  <a href="profile.html" class="btn btn-xs btn-secondary btn-sm">View Profile</a>
+                  <a href="{{ route('profile')}}" class="btn btn-xs btn-secondary btn-sm">View Profile</a>
                 </div>
               </div>
             </li>
@@ -152,3 +176,6 @@
 </nav>
 <!-- End Navbar -->
 </div>
+
+
+

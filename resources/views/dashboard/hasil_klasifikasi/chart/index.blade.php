@@ -3,7 +3,19 @@
 @section('content')
 <div class="page-inner">
   <div class="card-body">
-    <h4 class="card-title text-center mb-4">Statistik Pernikahan Dini</h4>
+    <div class="col-md-12">
+      <div class="card">
+        <div class="card-body">
+          <div class="page-header">
+            <h3 class="fw-bold mb-3">Chart Jumlah Pernikahan Dini</h3>
+            <ul class="breadcrumbs mb-3">
+              <li class="nav-home">
+                <a href="{{ route('dashboard.index') }}"><i class="icon-home"></i></a>
+              </li>
+              <li class="separator"><i class="icon-arrow-right"></i></li>
+              <li class="nav-item"><a href="{{ route('hasil_klasifikasi.graphView') }}">Chart Jumlah Pernikahan Dini</a></li>
+            </ul>
+          </div>
 
     <div class="row">
       <!-- Chart 1 -->
@@ -36,8 +48,6 @@
         </div>
       </div>
     </div>
-  </div>
-</div>
 @endsection
 
 @push('scripts')
@@ -54,24 +64,43 @@ document.addEventListener('DOMContentLoaded', function () {
     const labelsTahun = @json($tahunLabels);
     const dataTahun = @json($tahunData);
 
-    // Chart 1: Bar Wilayah
-    new Chart(document.getElementById('chartWilayah'), {
-        type: 'bar',
-        data: {
-            labels: labelsWilayah,
-            datasets: [{
-                label: 'Jumlah Pernikahan Dini',
+    // Chart 1: Mixed Chart Wilayah
+new Chart(document.getElementById('chartWilayah'), {
+    type: 'bar',
+    data: {
+        labels: labelsWilayah,
+        datasets: [
+            {
+                type: 'bar',
+                label: 'Jumlah Pernikahan Dini (Bar)',
                 data: dataWilayah,
                 backgroundColor: '#36A2EB'
-            }]
+            },
+            {
+                type: 'line',
+                label: 'Jumlah Pernikahan Dini (Line)',
+                data: dataWilayah,
+                borderColor: '#FF6384',
+                borderWidth: 2,
+                fill: false,
+                tension: 0.3
+            }
+        ]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: {
+                display: true
+            }
         },
-        options: {
-            responsive: true,
-            plugins: {
-                legend: { display: false }
+        scales: {
+            y: {
+                beginAtZero: true
             }
         }
-    });
+    }
+});
 
     // Chart 2: Pie Risiko
     new Chart(document.getElementById('chartRisiko'), {

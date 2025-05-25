@@ -11,7 +11,7 @@
                         <a href="{{ route('dashboard.index') }}"><i class="icon-home"></i></a>
                     </li>
                     <li class="separator"><i class="icon-arrow-right"></i></li>
-                    <li class="nav-item"><a href="{{ route('data_pernikahan.index') }}">Data Hasil Klasifikasi</a></li>
+                    <li class="nav-item"><a href="{{ route('hasil_klasifikasi.index') }}">Data Hasil Klasifikasi</a></li>
                 </ul>
             </div>
 
@@ -20,14 +20,6 @@
                     {{-- Tombol Aksi --}}
 
                     <div class="d-flex flex-wrap gap-2">
-                         @if(auth()->user()->role == 'admin')
-                        <a href="{{ route('data_pernikahan.tambahData') }}" class="btn btn-primary btn-round">
-                            <i class="fa fa-plus"></i> Tambah Data
-                        </a>
-                        <button type="button" class="btn btn-success btn-round" data-bs-toggle="modal" data-bs-target="#uploadModal">
-                            <i class="fa fa-upload"></i> Upload Excel
-                        </button>
-                        @endif
                         <div class="dropdown">
                             <button class="btn btn-outline-secondary btn-round dropdown-toggle" type="button" data-bs-toggle="dropdown">
                                 <i class="fa fa-download"></i> Export
@@ -49,13 +41,13 @@
                     {{-- Search & Filter --}}
                     <div class="d-flex flex-wrap gap-2">
                         {{-- Form Search --}}
-                        <form method="GET" action="{{ route('data_klasifikasi.index') }}" class="d-flex align-items-center gap-2">
-                            <input type="text" name="search" class="form-control" placeholder="Cari nama suami/istri..." value="{{ request()->search }}">
+                        <form method="GET" action="{{ route('hasil_klasifikasi.index') }}" class="d-flex align-items-center gap-2">
+                            <input type="text" name="search" class="form-control" placeholder="Cari nama kelurahan..." value="{{ request()->search }}">
                             <button type="submit" class="btn btn-primary"><i class="fa fa-search"></i></button>
                         </form>
 
                         {{-- Form Filter --}}
-                        <form method="GET" action="{{ route('data_klasifikasi.index') }}" class="d-flex align-items-center gap-2">
+                        <form method="GET" action="{{ route('hasil_klasifikasi.index') }}" class="d-flex align-items-center gap-2">
                             <input type="hidden" name="search" value="{{ request()->search }}">
 
                             {{-- Filter Kelurahan --}}
@@ -121,15 +113,7 @@
                             <td>{{ ucfirst($dt->resiko_wilayah?? 'Tidak diketahui') }}</td>
                             <td>
                                 <div class="form-button-action">
-                                    @if(auth()->user()->role == 'admin')
-                                    <a href="{{ route('data_pernikahan.edit', $dt->id) }}" class="btn btn-link btn-primary btn-lg">
-                                        <i class="fa fa-edit"></i>
-                                    </a>
-                                    <a href="javascript:void(0)" data-url="{{ route('data_pernikahan.delete', $dt->id) }}" class="btn btn-link btn-danger btn-delete">
-                                        <i class="fa fa-times"></i>
-                                    </a>
-                                    @endif
-                                    <a href="{{ route('data_pernikahan.detail', $dt->id) }}" class="btn btn-link btn-info">
+                                    <a href="{{ route('hasil_klasifikasi.detail_hasil', $dt->wilayah->id) }}" class="btn btn-link btn-info">
                                         <i class="fa fa-eye"></i>
                                     </a>
                                 </div>
@@ -147,28 +131,4 @@
         </div>
     </div>
 
-
-{{-- Modal Upload --}}
-<div class="modal fade" id="uploadModal" tabindex="-1" aria-labelledby="uploadModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Upload Excel File</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <form action="{{ route('data_pernikahan.upload') }}" method="POST" enctype="multipart/form-data">
-                    @csrf
-                    <div class="form-group">
-                        <label for="file">Choose Excel File</label>
-                        <input type="file" name="file" class="form-control" required>
-                    </div>
-                    <div class="form-group mt-4">
-                        <button type="submit" class="btn btn-primary">Upload</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-</div>
 @endsection

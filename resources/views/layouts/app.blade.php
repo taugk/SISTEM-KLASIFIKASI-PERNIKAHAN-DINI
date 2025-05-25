@@ -53,8 +53,12 @@
     <!-- Menambahkan JS Tagify -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tagify/4.4.0/tagify.min.js"></script>
 
+    <!-- FullCalendar CSS -->
+<link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" rel="stylesheet" />
+
   </head>
   <body>
+
 
     <div class="wrapper">
       @include('partials.sidebar')
@@ -94,6 +98,45 @@
       </div>
     @include('partials.footer')
     </div>
+
+
+
+
+    <!-- Modal Calendar -->
+<div class="modal fade" id="calendarModal" tabindex="-1" aria-labelledby="calendarModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="calendarModalLabel">Kalender Kegiatan</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Form Tambah Kegiatan -->
+        <form id="eventForm" class="mb-3">
+          <div class="row g-2 align-items-center">
+            <div class="col-md-8">
+              <input type="text" id="eventTitle" class="form-control" placeholder="Nama kegiatan" required />
+            </div>
+            <div class="col-md-4">
+              <input type="date" id="eventDate" class="form-control" required />
+            </div>
+          </div>
+          <div class="text-end mt-2">
+            <button type="submit" class="btn btn-primary btn-sm">Tambah Kegiatan</button>
+          </div>
+        </form>
+
+        <!-- Kalender -->
+        <div id="fullcalendar-container">
+          <div id="calendar"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
     <!--   Core JS Files   -->
     <script src="{{ asset ("assets/js/core/jquery-3.7.1.min.js")}}"></script>
     <script src="{{ asset("assets/js/core/popper.min.js") }}"></script>
@@ -281,6 +324,85 @@
   </script>
 
 
+<script>
+  window.onload = function () {
+    const spinner = document.getElementById("universal-spinner");
+    const mainContent = document.getElementById("main-content");
+
+    // Sembunyikan spinner, tampilkan konten
+    if (spinner) spinner.style.display = "none";
+    if (mainContent) mainContent.style.display = "block";
+  };
+
+  // Fallback untuk jaga-jaga (kalau window.onload gagal)
+  setTimeout(() => {
+    const spinner = document.getElementById("universal-spinner");
+    const mainContent = document.getElementById("main-content");
+    if (spinner && spinner.style.display !== "none") {
+      console.warn("Fallback aktif: spinner disembunyikan paksa.");
+      spinner.style.display = "none";
+      if (mainContent) mainContent.style.display = "block";
+    }
+  }, 8000);
+</script>
+
+
+
+<!-- FullCalendar Library -->
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const calendarBtn = document.getElementById("openCalendar");
+    let calendarInstance;
+
+    // Inisialisasi modal kalender saat tombol diklik
+    if (calendarBtn) {
+      calendarBtn.addEventListener("click", function (e) {
+        e.preventDefault();
+
+        const modal = new bootstrap.Modal(document.getElementById("calendarModal"));
+        modal.show();
+
+        if (!calendarInstance) {
+          const calendarEl = document.getElementById("calendar");
+          calendarInstance = new FullCalendar.Calendar(calendarEl, {
+            initialView: "dayGridMonth",
+            headerToolbar: {
+              left: "prev,next today",
+              center: "title",
+              right: ""
+            },
+            height: 500,
+            events: []
+          });
+          calendarInstance.render();
+        }
+      });
+    }
+
+    // Tangani form tambah kegiatan
+    const form = document.getElementById("eventForm");
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+
+      const title = document.getElementById("eventTitle").value.trim();
+      const date = document.getElementById("eventDate").value;
+
+      if (!title || !date || !calendarInstance) return;
+
+      // Tambah event ke calendar
+      calendarInstance.addEvent({
+        title: title,
+        start: date,
+        allDay: true
+      });
+
+      // Reset form dan beri notifikasi opsional
+      form.reset();
+    });
+  });
+</script>
 
 
 

@@ -6,6 +6,7 @@ use App\Models\Pengguna;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Intervention\Image\Facades\Image;
+use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\Storage;
 
 class DataPenggunaController extends Controller
@@ -26,7 +27,7 @@ class DataPenggunaController extends Controller
             $query->where('role', request('filter_role'));
         }
 
-    
+
         $data = $query->paginate();
 
 
@@ -42,33 +43,33 @@ class DataPenggunaController extends Controller
     {
         // Validasi input
         $validated = $request->validate([
-            'username' => 'required',
-            'role' => 'required',
-            'nama' => 'required',
-            'password' => 'required',
+            'username' => ['required', 'unique:pengguna', 'min:6', 'max:20', 'string', 'alpha_dash', 'regex:/^[a-zA-Z0-9_]+$/'],
+            'role' => ['required'],
+            'nama' => ['required', 'min:3', 'max:50', 'string', 'regex:/^[a-zA-Z0-9\s]+$/'],
+            'password' => ['required', 'min:6'],
             'foto' => 'required|image|mimes:jpg,jpeg,png,webp|max:2048',
             'alamat' => 'required',
         ]);
-    
-        // Meng-hash password 
+
+        // Meng-hash password
         $validated['password'] = Hash::make($validated['password']);
-    
+
         // Proses upload foto
         $foto = $request->file('foto');
         $imagePath = $foto->getPathname(); // path sementara
         $imageType = $foto->getClientMimeType(); // cek tipe mime
-    
+
         // Tentukan nama file untuk foto
         $namaFile = str_replace(' ', '_', strtolower($validated['nama'])) . '.jpeg';
         $folderPath = storage_path('app/public/foto');
-    
+
         // Pastikan folder ada, jika belum buat
         if (!file_exists($folderPath)) {
             mkdir($folderPath, 0755, true); // buat folder
         }
-    
+
         $outputPath = $folderPath . '/' . $namaFile;
-    
+
         // Konversi gambar ke JPEG menggunakan GD
         switch ($imageType) {
             case 'image/png':
@@ -84,24 +85,25 @@ class DataPenggunaController extends Controller
             default:
                 return back()->withErrors(['foto' => 'Format gambar tidak didukung.']);
         }
-    
+
         // Simpan gambar sebagai JPEG
         imagejpeg($imageResource, $outputPath, 90);
         imagedestroy($imageResource); // bersihkan memori
-    
+
         // Menyimpan nama file foto ke database
         $validated['foto'] = $namaFile;
-    
+
         // Menyimpan data pengguna ke database
         Pengguna::create($validated);
-    
+
         return redirect()->route('data_pengguna.index')
                          ->with('success', 'Data Pengguna Berhasil Ditambahkan');
     }
 
 public function edit($id){
+    $pengguna = Session::get('pengguna');
     $pengguna = Pengguna::find($id);
-    return view('dashboard.data_pengguna.edit_data', compact('pengguna'));  
+    return view('dashboard.data_pengguna.edit_data', compact('pengguna'));
 }
 
 public function editDataPost(Request $request, $id)
@@ -192,5 +194,33 @@ public function detail($id){
     $pengguna = Pengguna::find($id);
     return view('dashboard.data_pengguna.detail_pengguna', compact('pengguna'));
 }
+
+public function profile(){
+    $pengguna = Session::get('pengguna');
+    return view('dashboard.data_pengguna.profile', compact('pengguna'));
+}
+
+// Ubah fungsi jadi begini:
+public function update_password(Request $request)
+{
+    $id = session('pengguna.id'); // ambil id dari session
+    $pengguna = Pengguna::findOrFail($id);
+
+    $validated = $request->validate([
+        'current_password' => 'required',
+        'password' => 'required|min:6|confirmed',
+        'password_confirmation' => 'required',
+    ]);
+
+    if (!Hash::check($validated['current_password'], $pengguna->password)) {
+        return back()->with('error', 'Password lama tidak cocok.');
+    }
+
+    $pengguna->password = Hash::make($validated['password']);
+    $pengguna->save();
+
+    return back()->with('success', 'Password berhasil diubah!');
+}
+
 
 }

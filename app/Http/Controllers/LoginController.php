@@ -17,7 +17,7 @@ class LoginController extends Controller
 {
     // Validasi kredensial
     $credentials = $request->validate([
-        'username' => ['required', 'string'],
+        'username' => ['required', 'string' ],
         'password' => ['required'],
     ]);
 
@@ -67,24 +67,8 @@ class LoginController extends Controller
         return view('auth.register');
     }
 
-    public function simpanPengguna(Request $request){
-        $request->validate([
-            'username' => ['required', 'string'],
-            'password' => ['required'],
-        ]);
 
 
-        //cek username sudah ada atau belum
-        $pengguna = Pengguna::where('username', $request->username)->first();
-        if ($pengguna) {
-            return back()->with('error', 'Username sudah terdaftar!');
-        }
-
-        $pengguna = new Pengguna();
-        $pengguna->username = $request->username;
-        $pengguna->password = Hash::make($request->password);
-        $pengguna->save();
-    }
 
     public function forgotPassword(){
         return view('auth.forgot-password');

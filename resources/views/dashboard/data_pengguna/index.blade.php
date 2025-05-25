@@ -3,7 +3,7 @@
 @section('content')
     <div class="col-md-12">
         <div class="card">
-            
+
             <div class="card-body">
                 <div class="page-header">
                     <h3 class="fw-bold mb-3">Data Pengguna</h3>
@@ -19,17 +19,17 @@
                 <div class="card-header mt-10">
                     <div class="card-header mt-4 px-0 border-0">
                         <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
-                    
+
                             {{-- Bagian kiri: Tombol-tombol --}}
                             <div class="d-flex flex-wrap gap-2">
                                 <a href="{{ route('data_pengguna.tambahData') }}" class="btn btn-primary btn-round">
                                     <i class="fa fa-plus"></i> Tambah Data
                                 </a>
-                    
+
                                 <button type="button" class="btn btn-success btn-round" data-bs-toggle="modal" data-bs-target="#uploadModal">
                                     <i class="fa fa-upload"></i> Upload Excel
                                 </button>
-                    
+
                                 <div class="dropdown">
                                     <button class="btn btn-outline-secondary btn-round dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
                                         <i class="fa fa-download"></i> Export
@@ -41,15 +41,15 @@
                                     </ul>
                                 </div>
                             </div>
-                    
+
                             {{-- Bagian kanan: Search & Filter --}}
                             <div class="d-flex flex-wrap gap-2">
-                    
+
                                 <form method="GET" action="{{ route('data_pengguna.index') }}" class="d-flex align-items-center gap-2">
                                     <input type="text" name="search" class="form-control" placeholder="Cari..." value="{{ request()->search }}">
                                     <button type="submit" class="btn btn-primary"><i class="fa fa-search"></i></button>
                                 </form>
-                    
+
                                 <form method="GET" action="{{ route('data_pengguna.index') }}" class="d-flex align-items-center gap-2">
                                     <input type="hidden" name="search" value="{{ request()->search }}">
                                     <select name="filter_role" class="form-control">
@@ -60,12 +60,12 @@
                                     </select>
                                     <button type="submit" class="btn btn-primary">Filter</button>
                                 </form>
-                    
+
                             </div>
                         </div>
                     </div>
-                    
-                      
+
+
                 {{-- table --}}
                 <div class="table-responsive">
                     <table class="display table table-striped table-hover" id="basic-datatables">
@@ -82,7 +82,13 @@
                             @foreach ($data as $dt)
                                 <tr>
                                     <td>{{ $loop->iteration }}</td>
-                                    <td>{{ $dt->foto }}</td>
+                                    <td>
+                                        @if ($dt->foto)
+                                            <img src="{{ asset('storage/' . $dt->foto) }}" class="img-thumbnail" alt="Foto {{ $dt->nama }}" style="max-width: 100px; max-height: 100px;">
+                                            @else
+                                            <img src="{{ asset('assets/img/user_icon.png') }}" alt="" srcset="" style="max-width: 100px; max-height: 100px;">
+                                        @endif
+                                    </td>
                                     <td>{{ $dt->nama }}</td>
                                     <td>{{ $dt->role }}</td>
                                     <td>
@@ -107,7 +113,7 @@
                         @method('DELETE')
                     </form>
                 </div>
-                
+
             </div>
         </div>
     </div>
@@ -135,5 +141,5 @@
             </div>
         </div>
     </div>
-        
+
 @endsection

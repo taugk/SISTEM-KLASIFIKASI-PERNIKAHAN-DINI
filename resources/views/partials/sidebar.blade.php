@@ -7,7 +7,7 @@
   $isDataPengguna = request()->is('data_pengguna*');
   $isDataWilayah = request()->is('data_wilayah*');
   $isLaporan = request()->is('laporan*');
-  $isHasilKlasifikasi = request()->is('lihat_hasil*') || request()->is('grafik*') || request()->is('chart*') || request()->is('peta_sebaran*');
+  $isHasilKlasifikasi = request()->is('hasil_klasifikasi*');
 @endphp
 
 <div class="sidebar" data-background-color="dark">
@@ -18,7 +18,7 @@
       </a>
       <div class="nav-toggle">
         <button class="btn btn-toggle toggle-sidebar"><i class="fas fa-bars"></i></button>
-        <button class="btn btn-toggle sidenav-toggler"><i class="fas fa-angle-double-left"></i></button>
+        <button class="btn btn-toggle sidenav-toggler"><i class="fas fa-bars"></i></button>
       </div>
       <button class="topbar-toggler more"><i class="fas fa-ellipsis-v"></i></button>
     </div>
@@ -37,10 +37,10 @@
         </li>
 
         {{-- Data Pernikahan --}}
-        @if(in_array($userRole, ['admin', 'kepala kua']))
+        @if(in_array($userRole, ['admin']))
           <li class="nav-item {{ $isDataPernikahan ? 'active' : '' }}">
-            <a data-bs-toggle="collapse" href="#kelolaDataPernikahan" {{ $isDataPernikahan ? 'aria-expanded=true' : '' }}>
-              <i class="fas fa-ring"></i>
+            <a data-bs-toggle="collapse" href="#kelolaDataPernikahan" aria-expanded="{{ $isDataPernikahan ? 'true' : 'false' }}">
+              <i class="fas fa-heart"></i>
               <p>Kelola Data Pernikahan</p>
               <span class="caret"></span>
             </a>
@@ -64,7 +64,7 @@
         {{-- Data Edukasi --}}
         @if(in_array($userRole, ['admin', 'kepala kua', 'penyuluh']))
           <li class="nav-item {{ $isDataEdukasi ? 'active' : '' }}">
-            <a data-bs-toggle="collapse" href="#kelolaDataEdukasi" {{ $isDataEdukasi ? 'aria-expanded=true' : '' }}>
+            <a data-bs-toggle="collapse" href="#kelolaDataEdukasi" aria-expanded="{{ $isDataEdukasi ? 'true' : 'false' }}">
               <i class="fas fa-book-open"></i>
               <p>Kelola Data Edukasi</p>
               <span class="caret"></span>
@@ -91,7 +91,7 @@
         {{-- Data Klasifikasi --}}
         @if($userRole === 'admin')
           <li class="nav-item {{ $isDataKlasifikasi ? 'active' : '' }}">
-            <a data-bs-toggle="collapse" href="#kelolaDataKlasifikasi" {{ $isDataKlasifikasi ? 'aria-expanded=true' : '' }}>
+            <a data-bs-toggle="collapse" href="#kelolaDataKlasifikasi" aria-expanded="{{ $isDataKlasifikasi ? 'true' : 'false' }}">
               <i class="fas fa-stream"></i>
               <p>Kelola Data Klasifikasi</p>
               <span class="caret"></span>
@@ -109,7 +109,7 @@
 
           {{-- Data Pengguna --}}
           <li class="nav-item {{ $isDataPengguna ? 'active' : '' }}">
-            <a data-bs-toggle="collapse" href="#kelolaDataPengguna" {{ $isDataPengguna ? 'aria-expanded=true' : '' }}>
+            <a data-bs-toggle="collapse" href="#kelolaDataPengguna" aria-expanded="{{ $isDataPengguna ? 'true' : 'false' }}">
               <i class="fas fa-user-cog"></i>
               <p>Kelola Data Pengguna</p>
               <span class="caret"></span>
@@ -142,29 +142,16 @@
         {{-- Laporan --}}
         @if(in_array($userRole, ['admin', 'kepala kua']))
           <li class="nav-item {{ $isLaporan ? 'active' : '' }}">
-            <a data-bs-toggle="collapse" href="#laporanMenu" {{ $isLaporan ? 'aria-expanded=true' : '' }}>
+            <a data-bs-toggle="collapse" href="#laporanMenu" aria-expanded="{{ $isLaporan ? 'true' : 'false' }}">
               <i class="fas fa-file-alt"></i>
               <p>Laporan</p>
               <span class="caret"></span>
             </a>
             <div class="collapse {{ $isLaporan ? 'show' : '' }}" id="laporanMenu">
               <ul class="nav nav-collapse">
-                <li class="{{ request()->is('laporan/statistik') ? 'active' : '' }}">
+                <li class="{{ request()->is('laporan*') ? 'active' : '' }}">
                   <a href="{{ route('laporan.statistik') }}">
-                    <i class="fas fa-chart-pie"></i>
-                    <span>Statistik Umum</span>
-                  </a>
-                </li>
-                <li class="{{ request()->is('laporan/klasifikasi') ? 'active' : '' }}">
-                  <a href="{{ route('laporan.klasifikasi') }}">
-                    <i class="fas fa-project-diagram"></i>
-                    <span>Hasil Klasifikasi</span>
-                  </a>
-                </li>
-                <li class="{{ request()->is('laporan/wilayah') ? 'active' : '' }}">
-                  <a href="{{ route('laporan.wilayah') }}">
-                    <i class="fas fa-map-location"></i>
-                    <span>Peta Wilayah Risiko</span>
+                    <span class="sub-item">Statistik Umum</span>
                   </a>
                 </li>
               </ul>
@@ -174,30 +161,30 @@
 
         {{-- Hasil Klasifikasi --}}
         <li class="nav-item {{ $isHasilKlasifikasi ? 'active' : '' }}">
-          <a data-bs-toggle="collapse" href="#hasilKlasifikasi" {{ $isHasilKlasifikasi ? 'aria-expanded=true' : '' }}>
-            <i class="fas fa-chart-line"></i>
+          <a data-bs-toggle="collapse" href="#hasilKlasifikasi" aria-expanded="{{ $isHasilKlasifikasi ? 'true' : 'false' }}">
+            <i class="fas fa-project-diagram"></i>
             <p>Hasil Klasifikasi</p>
             <span class="caret"></span>
           </a>
           <div class="collapse {{ $isHasilKlasifikasi ? 'show' : '' }}" id="hasilKlasifikasi">
             <ul class="nav nav-collapse">
-              <li class="{{ request()->is('lihat_hasil*') ? 'active' : '' }}">
+              <li class="{{ request()->is('hasil_klasifikasi') || request()->is('hasil_klasifikasi/index') ? 'active' : '' }}">
                 <a href="{{ route('hasil_klasifikasi.index') }}">
                   <span class="sub-item">Hasil Klasifikasi</span>
                 </a>
               </li>
-              <li class="{{ request()->is('grafik*') ? 'active' : '' }}">
+              <li class="{{ request()->is('hasil_klasifikasi/graphView*') ? 'active' : '' }}">
                 <a href="{{ route('hasil_klasifikasi.graphView') }}">
                   <span class="sub-item">Grafik</span>
                 </a>
               </li>
-              <li class="{{ request()->is('chart*') ? 'active' : '' }}">
+              <li class="{{ request()->is('hasil_klasifikasi/chart*') ? 'active' : '' }}">
                 <a href="{{ route('hasil_klasifikasi.chart') }}">
                   <span class="sub-item">Chart</span>
                 </a>
               </li>
-              <li class="{{ request()->is('peta_sebaran*') ? 'active' : '' }}">
-                <a href="{{ route('peta_sebaran') }}">
+              <li class="{{ request()->is('hasil_klasifikasi/peta_sebaran*') ? 'active' : '' }}">
+                <a href="{{ route('hasil_klasifikasi.peta_sebaran') }}">
                   <span class="sub-item">Peta Sebaran</span>
                 </a>
               </li>

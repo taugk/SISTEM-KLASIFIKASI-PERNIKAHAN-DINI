@@ -130,26 +130,6 @@
     </div>
 </div>
 
-<!-- Modal Upload Excel -->
-<di class="modal fade" id="uploadModal" tabindex="-1" aria-labelledby="uploadModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="uploadModalLabel">Upload Excel File</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <form action="{{ route('data_pernikahan.upload') }}" method="POST" enctype="multipart/form-data">
-                    @csrf
-                    <div class="form-group">
-                        <label for="file">Pilih File Excel</label>
-                        <input type="file" name="file" class="form-control" required>
-                    </div>
-                    <div class="form-group mt-4">
-                        <button type="submit" class="btn btn-primary">Upload</button>
-                    </div>
-                </form>
-            </div>
-        </div>
+
 
 @endsection

@@ -10,6 +10,7 @@ use App\Models\DataPernikahan;
 use App\Models\Resiko_Wilayah;
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Models\HasilKlasifikasi;
+use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\HasilKlasifikasiExport;
@@ -54,79 +55,97 @@ class HasilKlasifikasiController extends Controller
     }
 
 
-    public function index(Request $request)
-    {
-        // Query untuk mengambil data resiko_wilayah dengan data wilayah yang terhubung
-        $query = Resiko_Wilayah::with('wilayah') // Memastikan relasi dengan model 'wilayah' dimuat
-            ->leftJoin('data_wilayah', 'resiko_wilayah.id_wilayah', '=', 'data_wilayah.id') // Join dengan tabel data_wilayah
-            ->orderBy('resiko_wilayah.created_at', 'desc');
+    public function index(Request $request){
+    // Query dasar dengan relasi wilayah
+    $query = Resiko_Wilayah::with('wilayah')
+        ->orderBy('created_at', 'desc');
 
-        // Filter search nama suami/istri
-        if ($request->has('search') && $request->search) {
-            $query->where(function ($q) use ($request) {
-                $q->where('nama_suami', 'like', '%' . $request->search . '%')
-                  ->orWhere('nama_istri', 'like', '%' . $request->search . '%');
-            });
-        }
-
-        // Filter kelurahan
-        if ($request->has('filter_kelurahan') && $request->filter_kelurahan) {
-            $query->whereHas('wilayah', function ($q) use ($request) {
-                $q->where('desa', $request->filter_kelurahan);
-            });
-        }
-
-        // Filter tahun
-        if ($request->has('filter_tahun') && $request->filter_tahun) {
-            $query->where('periode', $request->filter_tahun);
-        }
-
-        // Filter kategori resiko
-        if ($request->has('filter_resiko') && $request->filter_resiko) {
-            $query->where('resiko_wilayah', $request->filter_resiko);
-        }
-
-        // Ambil data yang sudah difilter
-        $data = $query->get();
-
-        // Data referensi untuk filter dropdown
-        $kelurahans = DataWilayah::select('desa')->distinct()->get(); // Fetch all desa/kesulahan
-        $tahun = Resiko_Wilayah::select('periode as tahun')->distinct()->orderBy('tahun', 'desc')->get();
-        $kategori = Resiko_Wilayah::select('resiko_wilayah as kategori_pernikahan')->distinct()->get();
-
-        $wilayah = DataWilayah::all(); // Get all wilayah data
-
-        return view('dashboard.hasil_klasifikasi.index', compact(
-            'data', 'kelurahans', 'tahun', 'kategori', 'wilayah'
-        ));
+    // Filter: nama suami/istri (kalau field ini memang ada di Resiko_Wilayah)
+    if ($request->filled('search')) {
+        $query->where(function ($q) use ($request) {
+            $q->where('nama_suami', 'like', '%' . $request->search . '%')
+              ->orWhere('nama_istri', 'like', '%' . $request->search . '%');
+        });
     }
 
-
-    public function detail($id){
-        $data = HasilKlasifikasi::find($id);
-        return view('dashboard.hasil_klasifikasi.detail', compact('data'));
+    // Filter: kelurahan
+    if ($request->filled('filter_kelurahan')) {
+        $query->whereHas('wilayah', function ($q) use ($request) {
+            $q->where('desa', $request->filter_kelurahan);
+        });
     }
 
-    public function chart(Request $request)
+    // Filter: tahun
+    if ($request->filled('filter_tahun')) {
+        $query->where('periode', $request->filter_tahun);
+    }
+
+    // Filter: kategori risiko
+    if ($request->filled('filter_resiko')) {
+        $query->where('resiko_wilayah', $request->filter_resiko);
+    }
+
+    // Ambil hasil
+    $data = $query->get();
+
+    // Data untuk dropdown filter
+    $kelurahans = DataWilayah::select('desa')->distinct()->get();
+    $tahun = Resiko_Wilayah::select('periode as tahun')->distinct()->orderByDesc('tahun')->get();
+    $kategori = Resiko_Wilayah::select('resiko_wilayah as kategori_pernikahan')->distinct()->get();
+    $wilayah = DataWilayah::all();
+
+    return view('dashboard.hasil_klasifikasi.index', compact(
+        'data', 'kelurahans', 'tahun', 'kategori', 'wilayah'
+    ));
+}
+
+
+public function detail($id)
 {
-    $data = HasilKlasifikasi::all();
+    $data = DataWilayah::with(['wilayah','resiko_wilayah'])->findOrFail($id);
 
-    // Grafik 1: Jumlah per wilayah
-    $wilayahChart = $data->groupBy('wilayah')->map(function ($item) {
-        return $item->count();
-    });
+    // Pastikan pernikahan collection tidak null
+    $pernikahan = $data->wilayah ?? collect();
 
-    // Grafik 2: Distribusi resiko
-    $resikoChart = $data->groupBy('resiko_wilayah')->map(function ($item) {
-        return $item->count();
-    });
+    $totalPernikahan = $pernikahan->count();
+    $totalPernikahanDini = $pernikahan->where('kategori_pernikahan', 'Pernikahan Dini')->count();
 
-    // Grafik 3: Jumlah per tahun (asumsi ada kolom 'tahun' atau ambil dari created_at)
+    $rataUsiaSuami = $pernikahan->avg('usia_suami');
+    $rataUsiaIstri = $pernikahan->avg('usia_istri');
+
+    return view('dashboard.hasil_klasifikasi.detail_hasil', compact(
+        'data', 'totalPernikahan', 'totalPernikahanDini', 'rataUsiaSuami', 'rataUsiaIstri'
+    ));
+}
+
+
+
+public function chart(Request $request)
+{
+    // Load data dengan eager loading relasi bertingkat
+    $data = HasilKlasifikasi::with('pernikahan.wilayah.resiko_wilayah')->get();
+
+    // Group berdasarkan nama desa wilayah, dengan fallback label jika data tidak lengkap
+    $wilayahChart = $data->groupBy(function ($item) {
+        return optional($item->pernikahan)
+            ->wilayah
+            ? $item->pernikahan->wilayah->desa
+            : 'Tidak Diketahui';
+    })->map->count();
+
+    // Group berdasarkan nama resiko wilayah, dengan fallback label jika data tidak lengkap
+    $resikoChart = $data->groupBy(function ($item) {
+        return optional(optional(optional($item->pernikahan)->wilayah)->resikoWilayah)
+            ->resiko_wilayah
+            ?: 'Tidak Diketahui';
+    })->map->count();
+
+    // Group berdasarkan tahun dari created_at, pastikan created_at ada
     $tahunChart = $data->groupBy(function ($item) {
-        return \Carbon\Carbon::parse($item->created_at)->format('Y');
-    })->map(function ($item) {
-        return $item->count();
-    });
+        return $item->created_at
+            ? \Carbon\Carbon::parse($item->created_at)->format('Y')
+            : 'Tidak Diketahui';
+    })->map->count();
 
     return view('dashboard.hasil_klasifikasi.chart.index', [
         'wilayahLabels' => $wilayahChart->keys(),
@@ -136,39 +155,85 @@ class HasilKlasifikasiController extends Controller
         'resikoData' => $resikoChart->values(),
 
         'tahunLabels' => $tahunChart->keys(),
-        'tahunData' => $tahunChart->values()
+        'tahunData' => $tahunChart->values(),
     ]);
 }
+
+
 
 
 public function graphView(Request $request)
 {
-    $data = Resiko_Wilayah::with('wilayah')->get();
+    $tahunTerpilih = $request->input('tahun', date('Y'));
 
-    // Grafik 1: Jumlah pernikahan dini per desa
-    $wilayahChart = $data->groupBy('wilayah.desa')->map(function ($item) {
-        return $item->sum('jumlah_pernikahan_dini');
+    // Ambil daftar tahun unik dari data pernikahan
+    $daftarTahun = DataPernikahan::selectRaw('YEAR(tanggal_akad) as tahun')
+        ->distinct()->orderBy('tahun', 'desc')->pluck('tahun');
+
+    // 1. Donut Chart: Jumlah pernikahan dini per desa (filter tahun)
+    $pernikahanPerWilayah = DataWilayah::withCount([
+        'wilayah as jumlah_pernikahan_dini' => function ($query) use ($tahunTerpilih) {
+            $query->whereYear('tanggal_akad', $tahunTerpilih)
+                ->whereHas('hasilKlasifikasi', function ($sub) {
+                    $sub->where('kategori_pernikahan', 'Pernikahan Dini');
+                });
+        }
+    ])->get();
+
+    $wilayahLabels = $pernikahanPerWilayah->pluck('desa');
+    $wilayahData = $pernikahanPerWilayah->pluck('jumlah_pernikahan_dini');
+
+    // 2. Bubble Chart: Risiko (tidak tergantung tahun)
+    $resikoCounts = DB::table('resiko_wilayah')
+        ->select('resiko_wilayah', DB::raw('COUNT(*) as jumlah'))
+        ->groupBy('resiko_wilayah')
+        ->get();
+
+    $resikoLabels = $resikoCounts->pluck('resiko_wilayah');
+    $resikoData = $resikoCounts->map(function ($item, $index) {
+        return [
+            'x' => $index + 1,
+            'y' => $item->jumlah,
+            'r' => $item->jumlah * 2,
+            'kategori' => $item->resiko_wilayah
+        ];
     });
 
-    // Grafik 2: Total pernikahan dini per tingkat risiko
-    $resikoChart = $data->groupBy('resiko_wilayah')->map(function ($item) {
-        return $item->sum('jumlah_pernikahan_dini');
-    });
+    // 3. Scatter Chart: Pernikahan dini per bulan di tahun terpilih
+    $bulanData = DataPernikahan::selectRaw('MONTH(tanggal_akad) as bulan, COUNT(*) as jumlah')
+        ->whereYear('tanggal_akad', $tahunTerpilih)
+        ->whereHas('hasilKlasifikasi', function ($q) {
+            $q->where('kategori_pernikahan', 'Pernikahan Dini');
+        })
+        ->groupByRaw('MONTH(tanggal_akad)')
+        ->orderBy('bulan')
+        ->get();
 
-    // Grafik 3: Jumlah pernikahan dini per tahun/periode
-    $periodeChart = $data->groupBy('periode')->map(function ($item) {
-        return $item->sum('jumlah_pernikahan_dini');
-    });
+    $bulanLabels = [
+        1 => 'Jan', 2 => 'Feb', 3 => 'Mar', 4 => 'Apr', 5 => 'Mei', 6 => 'Jun',
+        7 => 'Jul', 8 => 'Agu', 9 => 'Sep', 10 => 'Okt', 11 => 'Nov', 12 => 'Des'
+    ];
+
+    $bulanValues = [];
+    for ($i = 1; $i <= 12; $i++) {
+        $bulanValues[] = $bulanData->firstWhere('bulan', $i)->jumlah ?? 0;
+    }
+
+
 
     return view('dashboard.hasil_klasifikasi.grafik.index', [
-        'wilayahLabels' => $wilayahChart->keys(),
-        'wilayahData' => $wilayahChart->values(),
-        'resikoLabels' => $resikoChart->keys(),
-        'resikoData' => $resikoChart->values(),
-        'tahunLabels' => $periodeChart->keys(),
-        'tahunData' => $periodeChart->values()
+        'wilayahLabels' => $wilayahLabels,
+        'wilayahData' => $wilayahData,
+        'resikoLabels' => $resikoLabels,
+        'resikoData' => $resikoData,
+        'bulanLabels' => array_values($bulanLabels),
+        'bulanData' => $bulanValues,
+        'daftarTahun' => $daftarTahun,
+        'tahunTerpilih' => $tahunTerpilih
     ]);
 }
+
+
 
 public function exportExcel(Request $request){
      // Ambil data filter dari request

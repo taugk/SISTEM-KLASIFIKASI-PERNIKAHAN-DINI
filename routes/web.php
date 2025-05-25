@@ -21,6 +21,8 @@ Route::get('/', [LoginController::class, 'index'])->name('login.index');
 Route::get('/login', [LoginController::class, 'index'])->name('login');
 Route::post('/login/authenticate', [LoginController::class, 'authenticate'])->name('login.authenticate');
 Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
+Route::get('/profile', [DataPenggunaController::class, 'profile'])->middleware('auth')->name('profile');
+Route::post('/profile/update_password', [DataPenggunaController::class, 'update_password'])->middleware('auth')->name('update_password');
 
 /*
 |--------------------------------------------------------------------------
@@ -34,7 +36,7 @@ Route::middleware(['auth', 'role:admin,kepala kua,penyuluh'])->get('/dashboard',
 | DATA PERNIKAHAN (admin, kepala kua)
 |--------------------------------------------------------------------------
 */
-Route::middleware(['auth', 'role:admin,kepala kua'])->prefix('data_pernikahan')->name('data_pernikahan.')->group(function () {
+Route::middleware(['auth', 'role:admin'])->prefix('data_pernikahan')->name('data_pernikahan.')->group(function () {
     Route::get('/', [DataPernikahanController::class, 'index'])->name('index');
     Route::get('/tambahData', [DataPernikahanController::class, 'tambahData'])->name('tambahData');
     Route::post('/tambahDataPost', [DataPernikahanController::class, 'tambahDataPost'])->name('tambahDataPost');
@@ -57,11 +59,14 @@ Route::middleware(['auth', 'role:admin'])->prefix('data_pengguna')->name('data_p
     Route::get('/', [DataPenggunaController::class, 'index'])->name('index');
     Route::get('/tambahData', [DataPenggunaController::class, 'tambahData'])->name('tambahData');
     Route::post('/tambahDataPost', [DataPenggunaController::class, 'tambahDataPost'])->name('tambahDataPost');
-    Route::get('/{id}/editData', [DataPenggunaController::class, 'edit'])->name('edit');
-    Route::post('/update/{id}', [DataPenggunaController::class, 'editDataPost'])->name('editDataPost');
+    Route::get('/{id}/editData', [DataPenggunaController::class, 'edit'])->middleware('auth')->name('edit');
+    Route::post('/update/{id}', [DataPenggunaController::class, 'editDataPost'])->middleware('auth')->name('editDataPost');
     Route::delete('/{id}/deleteData', [DataPenggunaController::class, 'delete'])->name('delete');
     Route::get('/{id}/detailData', [DataPenggunaController::class, 'detail'])->name('detail');
 });
+
+    Route::get('/{id}/editData', [DataPenggunaController::class, 'edit'])->middleware('auth')->name('edit');
+    Route::post('/update/{id}', [DataPenggunaController::class, 'editDataPost'])->middleware('auth')->name('editDataPost');
 
 /*
 |--------------------------------------------------------------------------
@@ -121,14 +126,15 @@ Route::middleware(['auth', 'role:admin'])->prefix('data_klasifikasi')->name('dat
 | HASIL KLASIFIKASI (semua role)
 |--------------------------------------------------------------------------
 */
-Route::middleware(['auth', 'role:admin,kepala kua,penyuluh'])->group(function () {
-    Route::get('/hasil_klasifikasi', [HasilKlasifikasiController::class, 'index'])->name('hasil_klasifikasi.index');
+Route::middleware(['auth', 'role:admin,kepala kua,penyuluh'])->prefix('hasil_klasifikasi')->name('hasil_klasifikasi.')->group(function () {
+    Route::get('/', [HasilKlasifikasiController::class, 'index'])->name('index');
     Route::get('/peta_sebaran', [HasilKlasifikasiController::class, 'map'])->name('peta_sebaran');
-    Route::get('/hasil_klasifikasi/chart', [HasilKlasifikasiController::class, 'chart'])->name('hasil_klasifikasi.chart');
-    Route::get('/hasil_klasifikasi/graphView', [HasilKlasifikasiController::class, 'graphView'])->name('hasil_klasifikasi.graphView');
-    Route::get('/exportExcel', [HasilKlasifikasiController::class, 'exportExcel'])->name('hasil_klasifikasi.exportExcel');
-    Route::get('/exportPdf', [HasilKlasifikasiController::class, 'exportPdf'])->name('hasil_klasifikasi.exportPdf');
-    Route::get('/exportCsv', [HasilKlasifikasiController::class, 'exportCsv'])->name('hasil_klasifikasi.exportCsv');
+    Route::get('/chart', [HasilKlasifikasiController::class, 'chart'])->name('chart');
+    Route::get('/graphView', [HasilKlasifikasiController::class, 'graphView'])->name('graphView');
+    Route::get('/exportExcel', [HasilKlasifikasiController::class, 'exportExcel'])->name('exportExcel');
+    Route::get('/exportPdf', [HasilKlasifikasiController::class, 'exportPdf'])->name('exportPdf');
+    Route::get('/exportCsv', [HasilKlasifikasiController::class, 'exportCsv'])->name('exportCsv');
+    Route::get('/{id}/detail_hasil', [HasilKlasifikasiController::class, 'detail'])->name('detail_hasil');
 });
 
 
@@ -137,10 +143,13 @@ Route::middleware(['auth', 'role:admin,kepala kua,penyuluh'])->group(function ()
 | Laporan
 |--------------------------------------------------------------------------
 */
-Route::middleware(['auth', 'role:admin, kepala kua'])->prefix('laporan')->name('laporan.')->group(function () {
+Route::middleware(['auth', 'role:admin,kepala kua'])->prefix('laporan')->name('laporan.')->group(function () {
     Route::get('/statistik', [LaporanController::class, 'statistik'])->name('statistik');
     Route::get('/klasifikasi', [LaporanController::class, 'klasifikasi'])->name('klasifikasi');
     Route::get('/resiko_wilayah', [LaporanController::class, 'resiko_wilayah'])->name('wilayah');
+    Route::get('/exportExcel', [LaporanController::class, 'exportExcel'])->name('exportExcel');
+    Route::get('/exportCsv', [LaporanController::class, 'exportCsv'])->name('exportCsv');
+    Route::get('/exportPdf', [LaporanController::class, 'exportPdf'])->name('exportPdf');
 });
 
 /*
@@ -149,6 +158,8 @@ Route::middleware(['auth', 'role:admin, kepala kua'])->prefix('laporan')->name('
 |--------------------------------------------------------------------------
 */
 Route::post('/predict', [ModelAPIController::class, 'predict'])->name('predict');
+
+
 
 
 

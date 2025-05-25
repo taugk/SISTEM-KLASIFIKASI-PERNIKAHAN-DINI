@@ -16,7 +16,8 @@
     },
     "require-dev": {
         "barryvdh/laravel-debugbar": "^3.15",
-        "barryvdh/laravel-ide-helper": "*",
+        "barryvdh/laravel-ide-helper": "^3.5",
+        "beyondcode/laravel-er-diagram-generator": "^4.0",
         "fakerphp/faker": "^1.23",
         "laravel/breeze": "^2.3",
         "laravel/pail": "^1.2.2",
