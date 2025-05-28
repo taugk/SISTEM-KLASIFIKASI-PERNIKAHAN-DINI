@@ -13,7 +13,6 @@ class Laporan implements FromView
 {
     protected $tahun;
     protected $wilayah_id;
-
     protected $kategori_wilayah;
 
     public function __construct($tahun = null, $wilayah_id = null, $kategori_wilayah = null)
@@ -22,62 +21,105 @@ class Laporan implements FromView
         $this->wilayah_id = $wilayah_id;
         $this->kategori_wilayah = $kategori_wilayah;
     }
-    /**
-     * Export data laporan dalam format excel
 
-     * @return \Illuminate\Contracts\View\View
-     */
-/*******  331b0064-b8ba-412e-bc24-6dcf9167ed12  *******/
     public function view(): View
     {
         $tahun = $this->tahun;
         $wilayah_id = $this->wilayah_id;
         $kategori = $this->kategori_wilayah;
 
+        $daftarTahun = DB::table('resiko_wilayah')
+            ->selectRaw('DISTINCT LEFT(periode, 4) as tahun')
+            ->pluck('tahun');
 
-        $statistikWilayah = DataWilayah::when($wilayah_id, fn($q) => $q->where('id', $wilayah_id))
-            ->when($kategori, function ($query) use ($kategori) {
-                return $query->whereHas('resikoWilayah', function ($q) use ($kategori) {
-                    $q->where('resiko_wilayah', $kategori);
+        $daftarWilayah = DB::table('data_wilayah')->get();
+
+        $wilayahFilteredIds = DB::table('resiko_wilayah')
+            ->when($kategori, fn($q) => $q->where('resiko_wilayah', $kategori))
+            ->pluck('id_wilayah')
+            ->unique();
+
+        $kategoriWilayah = DB::table('resiko_wilayah')
+            ->selectRaw('resiko_wilayah, COUNT(*) as jumlah_pernikahan_dini')
+            ->groupBy('resiko_wilayah')
+            ->get();
+
+        $statistikWilayah = DataWilayah::query()
+            ->when($wilayah_id, fn($q) => $q->where('id', $wilayah_id))
+            ->when($kategori && $wilayahFilteredIds->isNotEmpty(), fn($q) =>
+                $q->whereIn('id', $wilayahFilteredIds)
+            )
+            ->when($kategori || $tahun, function ($query) use ($kategori, $tahun) {
+                $query->whereHas('resiko_wilayah', function ($q) use ($kategori, $tahun) {
+                    if ($kategori) {
+                        $q->where('resiko_wilayah', $kategori);
+                    }
+                    if ($tahun) {
+                        $q->where('periode', 'like', "$tahun%");
+                    }
                 });
             })
-            ->withCount(['wilayah as jumlah_pernikahan' => fn($q) => $q->select(DB::raw('count(*)'))])
-            ->with(['resikoWilayah' => function ($q) use ($tahun) {
-                if ($tahun) $q->where('periode', 'like', "$tahun%");
-                $q->select('id_wilayah', 'resiko_wilayah', 'jumlah_pernikahan_dini', 'periode')
-                  ->groupBy('id_wilayah', 'resiko_wilayah', 'jumlah_pernikahan_dini', 'periode');
-            }])
+            ->withCount([
+                'wilayah as jumlah_pernikahan' => fn($q) =>
+                    $q->select(DB::raw('count(*)'))
+            ])
+            ->with([
+                'resiko_wilayah' => function ($query) use ($tahun, $kategori) {
+                    if ($tahun) {
+                        $query->where('periode', 'like', "$tahun%");
+                    }
+                    if ($kategori) {
+                        $query->where('resiko_wilayah', $kategori);
+                    }
+                    $query->select('id_wilayah', 'resiko_wilayah', 'jumlah_pernikahan_dini', 'periode');
+                }
+            ])
             ->get();
 
+        $pernikahan = HasilKlasifikasi::with(['pernikahan.wilayah.resiko_wilayah'])
+            ->when($tahun, fn($q) => $q->whereYear('created_at', $tahun))
+            ->get()
+            ->filter(function ($item) use ($wilayah_id, $kategori) {
+                $wilayah = $item->pernikahan?->wilayah;
+                $resiko = $wilayah?->resiko_wilayah->first()?->resiko_wilayah;
+                return (!$wilayah_id || $wilayah?->id == $wilayah_id)
+                    && (!$kategori || $resiko === $kategori);
+            });
 
-        $statistikKategori = HasilKlasifikasi::select('kategori_pernikahan')
-            ->selectRaw('COUNT(*) as total')
+        $statistikKategori = $pernikahan
             ->groupBy('kategori_pernikahan')
-            ->get();
-
-        $pernikahan = HasilKlasifikasi::when($tahun, fn($q) => $q->whereYear('created_at', $tahun))
-            ->when($wilayah_id, fn($q) => $q->where('id_wilayah', $wilayah_id))
-            ->get();
+            ->map(function ($group, $kategori_pernikahan) {
+                return (object)[
+                    'kategori_pernikahan' => $kategori_pernikahan,
+                    'total' => $group->count()
+                ];
+            })
+            ->values();
 
         $statistikUsia = [
-            'avg_suami' => round($pernikahan->avg('usia_suami'), 2),
-            'avg_istri' => round($pernikahan->avg('usia_istri'), 2),
-            'min_suami' => $pernikahan->min('usia_suami'),
-            'min_istri' => $pernikahan->min('usia_istri'),
-            'max_suami' => $pernikahan->max('usia_suami'),
-            'max_istri' => $pernikahan->max('usia_istri'),
+            'avg_suami' => round($pernikahan->avg(fn($p) => $p->pernikahan?->usia_suami ?? 0), 2),
+            'avg_istri' => round($pernikahan->avg(fn($p) => $p->pernikahan?->usia_istri ?? 0), 2),
+            'min_suami' => $pernikahan->min(fn($p) => $p->pernikahan?->usia_suami ?? 0),
+            'min_istri' => $pernikahan->min(fn($p) => $p->pernikahan?->usia_istri ?? 0),
+            'max_suami' => $pernikahan->max(fn($p) => $p->pernikahan?->usia_suami ?? 0),
+            'max_istri' => $pernikahan->max(fn($p) => $p->pernikahan?->usia_istri ?? 0),
         ];
 
         $statistikGender = [
-            'suami_dini' => $pernikahan->where('usia_suami', '<', 19)->count(),
-            'istri_dini' => $pernikahan->where('usia_istri', '<', 19)->count(),
+            'suami_dini' => $pernikahan->filter(fn($p) => $p->pernikahan?->usia_suami < 19)->count(),
+            'istri_dini' => $pernikahan->filter(fn($p) => $p->pernikahan?->usia_istri < 19)->count(),
         ];
 
-        $data = DataPernikahan::when($tahun, fn($q) => $q->whereYear('tanggal_akad', $tahun))
+        $data = DataPernikahan::with('wilayah.resiko_wilayah')
+            ->when($tahun, fn($q) => $q->whereYear('tanggal_akad', $tahun))
             ->when($wilayah_id, fn($q) => $q->where('wilayah_id', $wilayah_id))
-            ->get();
+            ->get()
+            ->filter(function ($item) use ($kategori) {
+                $resiko = $item->wilayah?->resiko_wilayah->first()?->resiko_wilayah;
+                return !$kategori || $resiko === $kategori;
+            });
 
-        $statistikPendidikan = $data
+        $statistikPendidikan = collect($data)
             ->groupBy('pendidikan_suami')
             ->map(function ($group, $key) use ($data) {
                 return (object)[
@@ -85,7 +127,8 @@ class Laporan implements FromView
                     'jumlah_suami' => $group->count(),
                     'jumlah_istri' => $data->where('pendidikan_istri', $key)->count()
                 ];
-            })->values();
+            })
+            ->values();
 
         return view('dashboard.laporan.export-excel', compact(
             'statistikWilayah',

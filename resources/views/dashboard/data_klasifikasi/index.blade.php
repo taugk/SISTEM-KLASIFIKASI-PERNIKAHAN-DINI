@@ -35,6 +35,13 @@
                             </ul>
                         </div>
                     </div>
+                    <form id="form-reclassify" action="{{ route('data_klasifikasi.re_classify') }}" method="POST" onsubmit="return confirm('Apakah Anda yakin ingin mengklasifikasikan ulang data baru?')">
+    @csrf
+    <button type="submit" class="btn btn-success">
+        <i class="fa fa-sync-alt"></i> Re-Classify
+    </button>
+</form>
+
 
                     <div class="d-flex flex-wrap gap-2">
                         <form method="GET" action="{{ route('data_klasifikasi.index') }}" class="d-flex align-items-center gap-2">
@@ -128,7 +135,7 @@
             </div>
         </div>
     </div>
-</div>
+
 
 
 

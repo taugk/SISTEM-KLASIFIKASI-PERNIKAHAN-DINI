@@ -16,6 +16,7 @@ class HasilKlasifikasi extends Model
         'probabilitas',
         'akurasi',
         'confidence',
+        'akurasi',
         'id_pernikahan',
     ];
 

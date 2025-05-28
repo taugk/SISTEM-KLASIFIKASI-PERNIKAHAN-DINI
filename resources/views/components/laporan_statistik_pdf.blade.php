@@ -59,7 +59,10 @@
     <div class="header">
         <h1>LAPORAN STATISTIK PERNIKAHAN DINI</h1>
 
-        <p>Periode: {{ request('tahun') ? request('tahun') : 'Semua Tahun' }}</p>
+        <p>Wilayah: {{ ucfirst($nama_wilayah) ?? 'Semua Wilayah' }}</p>
+        <p>Periode: {{ $tahun ?? 'Semua Tahun' }}</p>
+        <p>Kategori Wilayah: {{ $kategori ?? 'Semua Kategori Wilayah' }}</p>
+
     </div>
 
     <div class="section-title">1. Statistik Wilayah</div>
@@ -185,7 +188,7 @@
     </table>
 
     <div class="footer">
-        <p>Dicetak pada: {{ now()->format('d F Y H:i:s') }}</p>
+        <p>Dicetak pada: {{ now()->setTimezone('Asia/Jakarta')->translatedFormat('d F Y H:i:s') }} WIB</p>
     </div>
 </body>
 </html>

@@ -119,6 +119,7 @@ Route::middleware(['auth', 'role:admin'])->prefix('data_klasifikasi')->name('dat
     Route::get('/exportExcel', [DataKlasifikasiController::class, 'exportExcel'])->name('exportExcel');
     Route::get('/exportCsv', [DataKlasifikasiController::class, 'exportCsv'])->name('exportCsv');
     Route::get('/exportPdf', [DataKlasifikasiController::class, 'exportPdf'])->name('exportPdf');
+    Route::post('/re-classify', [DataKlasifikasiController::class, 're_classify'])->name('re_classify');
 });
 
 /*

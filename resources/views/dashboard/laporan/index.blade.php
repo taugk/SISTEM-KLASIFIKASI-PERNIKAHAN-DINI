@@ -19,18 +19,19 @@
             <div class="card-header px-0 border-0">
                 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
                      <div class="dropdown">
+
                             <button class="btn btn-outline-secondary btn-round dropdown-toggle" type="button" data-bs-toggle="dropdown">
                                 <i class="fa fa-download"></i> Export
                             </button>
                             <ul class="dropdown-menu">
                                 <li>
-                                    <a href="{{ route('laporan.exportExcel', request()->only(['search', 'filter_kelurahan', 'filter_tahun'])) }}" class="dropdown-item">Export Excel (.xlsx)</a>
+                                    <a href="{{ route('laporan.exportExcel', request()->only(['search','kategori_wilayah', 'wilayah_id', 'tahun'])) }}" class="dropdown-item">Export Excel (.xlsx)</a>
                                 </li>
                                 <li>
-                                    <a href="{{ route('laporan.exportCsv', request()->only(['search', 'filter_kelurahan', 'filter_tahun'])) }}" class="dropdown-item">Export Excel (.csv)</a>
+                                    <a href="{{ route('laporan.exportCsv', request()->only(['search','kategori_wilayah', 'wilayah_id', 'tahun'])) }}" class="dropdown-item">Export Excel (.csv)</a>
                                 </li>
                                 <li>
-                                    <a href="{{ route('laporan.exportPdf', request()->only(['search', 'filter_kelurahan', 'filter_tahun'])) }}" class="dropdown-item">Export PDF</a>
+                                    <a href="{{ route('laporan.exportPdf', request()->only(['search','kategori_wilayah', 'wilayah_id', 'tahun'])) }}" class="dropdown-item">Export PDF</a>
                                 </li>
                             </ul>
                         </div>
@@ -42,7 +43,7 @@
                                 <option value="">Filter Wilayah</option>
                                 @foreach ($daftarWilayah as $w)
                                     <option value="{{ $w->id }}" {{ request('wilayah_id') == $w->id ? 'selected' : '' }}>
-                                        {{ $w->desa }} - {{ $w->kecamatan }}
+                                        {{ Str::ucfirst(Str::lower($w->desa)) }} - {{ Str::ucfirst(Str::lower($w->kecamatan)) }}
                                     </option>
                                 @endforeach
                             </select>

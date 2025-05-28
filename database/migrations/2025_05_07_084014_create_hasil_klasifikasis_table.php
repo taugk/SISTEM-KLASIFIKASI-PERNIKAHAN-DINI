@@ -17,6 +17,7 @@ return new class extends Migration
             $table->string('kategori_pernikahan');
             $table->decimal('confidence');
             $table->string('probabilitas');
+
             $table->timestamps();
         });
     }

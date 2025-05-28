@@ -2,14 +2,17 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Support\Str;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class DataPernikahan extends Model
 {
     use HasFactory;
 
     protected $table = "pernikahan";
+
+    protected $primaryKey = "id";
 
     protected $fillable = [
         'nama_suami',
@@ -38,6 +41,8 @@ class DataPernikahan extends Model
         'tanggal_lahir_istri' => 'date',
         'tanggal_akad' => 'date',
     ];
+
+
 
     public function wilayah(){
         return $this->belongsTo(DataWilayah::class, 'wilayah_id', 'id');

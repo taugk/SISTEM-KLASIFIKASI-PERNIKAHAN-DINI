@@ -11,15 +11,16 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('data_edukasi', function (Blueprint $table) {
-            $table->id('kd_edukasi')->unique();
-            $table->string('judul'); // kolom untuk judul edukasi
-            $table->text('deskripsi'); // kolom untuk deskripsi edukasi
-            $table->string('gambar')->nullable(); // kolom untuk gambar (nullable, bisa kosong)
-            $table->unsignedBigInteger('pengguna_id'); // kolom untuk pengguna_id (foreign key)
-            $table->timestamps(); // kolom created_at dan updated_at
+       Schema::create('data_edukasi', function (Blueprint $table) {
+            $table->string('kd_edukasi')->primary();  // Kode edukasi
+            $table->string('judul');  // Judul edukasi
+            $table->text('deskripsi');  // Deskripsi edukasi
+            $table->string('gambar')->nullable();  // Gambar edukasi
+            $table->string('kategori')->nullable();  // Kategori edukasi, disimpan sebagai string
+            $table->unsignedBigInteger('pengguna_id');  // ID pengguna yang menambahkan
+            $table->timestamps();  // Created_at dan updated_at
 
-            // Menambahkan foreign key constraint
+            // Membuat foreign key untuk pengguna_id (mengacu pada tabel pengguna)
             $table->foreign('pengguna_id')->references('id')->on('pengguna')->onDelete('cascade');
         });
     }

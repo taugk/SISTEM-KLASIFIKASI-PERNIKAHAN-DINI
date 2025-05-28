@@ -2,16 +2,19 @@
 
 namespace App\Http\Controllers;
 
-use Log;
+
 use App\Models\DataWilayah;
 use Illuminate\Support\Str;
 use Illuminate\Http\Request;
 use App\Models\DataPernikahan;
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Models\HasilKlasifikasi;
+use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
+use Illuminate\Support\Facades\Http;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\DataKlasifikasiExport;
+use Illuminate\Support\Facades\Log;
 
 class DataKlasifikasiController extends Controller
 {
@@ -189,7 +192,7 @@ public function exportPdf(Request $request)
             'nama_istri'       => $item->pernikahan->nama_istri ?? '-',
             'usia_suami'       => $item->pernikahan->usia_suami ?? '-',
             'usia_istri'       => $item->pernikahan->usia_istri ?? '-',
-            'tanggal_akad'     => optional($item->pernikahan)->tanggal_akad 
+            'tanggal_akad'     => optional($item->pernikahan)->tanggal_akad
                                     ? \Carbon\Carbon::parse($item->pernikahan->tanggal_akad)->translatedFormat('d F Y')
                                     : '-',
             'kelurahan'        => $item->pernikahan->wilayah->desa ?? '-',
@@ -221,5 +224,98 @@ public function exportPdf(Request $request)
 
     return $pdf->download($fileName);
 }
+
+
+public function re_classify()
+{
+    $data = DataPernikahan::whereNotIn('id', function ($query) {
+        $query->select('id_pernikahan')->from('hasil_klasifikasi');
+    })->get();
+
+    if ($data->isEmpty()) {
+        Log::info('Tidak ada data baru untuk diklasifikasikan ulang.');
+        return response()->json(['message' => 'Tidak ada data baru untuk diklasifikasikan ulang.']);
+    }
+
+    $chunks = $data->chunk(50); // handle chunking untuk data besar
+    DB::beginTransaction();
+
+    try {
+        foreach ($chunks as $chunkIndex => $chunk) {
+            $payload = [];
+            $mapping = [];
+
+            foreach ($chunk as $item) {
+                $wilayah = DataWilayah::find($item->wilayah_id);
+                if (!$wilayah) {
+                    throw new \Exception("Wilayah ID {$item->wilayah_id} tidak ditemukan.");
+                }
+
+                $payload[] = [
+                    'umur_suami' => (string)$item->usia_suami,
+                    'umur_istri' => (string)$item->usia_istri,
+                    'pendidikan_suami' => $item->pendidikan_suami,
+                    'pendidikan_istri' => $item->pendidikan_istri,
+                    'pekerjaan_suami' => $item->pekerjaan_suami,
+                    'pekerjaan_istri' => $item->pekerjaan_istri,
+                    'status_suami' => $item->status_suami,
+                    'status_istri' => $item->status_istri,
+                    'nama_kelurahan' => $wilayah->desa,
+                ];
+
+                $mapping[] = [
+                    'id_pernikahan' => $item->id,
+                    'wilayah_id' => $item->wilayah_id,
+                ];
+            }
+
+            // Gunakan konfigurasi untuk URL API
+            $response = Http::timeout(120)->post('http://127.0.0.1:5000/predict-batch', [
+                'data' => $payload
+            ]);
+
+            if (!$response->successful()) {
+                throw new \Exception('Gagal menghubungi API klasifikasi batch. Status: ' . $response->status());
+            }
+
+            $hasilBatch = $response->json();
+
+            Log::info("Response dari re-classify chunk ke-{$chunkIndex}:", ['hasilBatch' => $hasilBatch]);
+
+            $hasilBatch = $response->json();
+
+
+
+            if (!isset($hasilBatch['results']) || count($hasilBatch['results']) !== count($mapping)) {
+                throw new \Exception('Jumlah hasil klasifikasi tidak sesuai.');
+            }
+
+            foreach ($hasilBatch['results'] as $i => $hasil) {
+                HasilKlasifikasi::updateOrCreate(
+                    ['id_pernikahan' => $mapping[$i]['id_pernikahan']],
+                    [
+                        'kategori_pernikahan' => $hasil['hasil_prediksi'],
+                        'confidence' => floatval(preg_replace('/[^0-9.]/', '', $hasil['confidence'])),
+                        'probabilitas' => json_encode($hasil['probabilitas']),
+                    ]
+                );
+            }
+
+            Log::info("Chunk ke-{$chunkIndex} berhasil diklasifikasikan.");
+        }
+
+        DB::commit();
+        return response()->json(['message' => 'Berhasil melakukan klasifikasi ulang pada data baru.']);
+
+    } catch (\Throwable $e) {
+        DB::rollBack();
+        Log::error('Error saat re-classify:', [
+            'message' => $e->getMessage(),
+            'trace' => $e->getTraceAsString(),
+        ]);
+        return response()->json(['message' => 'Terjadi kesalahan saat klasifikasi ulang.'], 500);
+    }
+}
+
 
 }

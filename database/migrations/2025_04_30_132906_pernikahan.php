@@ -13,8 +13,6 @@ return new class extends Migration
     {
         Schema::create('pernikahan', function (Blueprint $table) {
             $table->id();
-
-            // Suami
             $table->string('nama_suami');
             $table->date('tanggal_lahir_suami');
             $table->integer('usia_suami');
@@ -62,7 +60,6 @@ return new class extends Migration
 
             // Data pernikahan
             $table->date('tanggal_akad');
-            $table->string('nama_kelurahan');
 
             // Timestamps
             $table->timestamps(); // created_at dan updated_at otomatis

@@ -284,6 +284,7 @@ public function import(Request $request)
         //tambah loading
         sleep(40);
 
+
         // Redirect kembali ke halaman index dengan pesan sukses
         return redirect()->route('data_pernikahan.index')
                          ->with('success', 'Data Pernikahan Berhasil Diimport');
