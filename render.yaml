@@ -1,0 +1,39 @@
+services:
+  - type: web
+    name: pernikahan-dini
+    runtime: static
+    buildCommand: composer install --no-dev --optimize-autoloader && npm install && npm run build
+    startCommand: vendor/bin/heroku-php-apache2 public/
+    envVars:
+      - key: APP_NAME
+        value: "Pernikahan Dini"
+      - key: APP_ENV
+        value: "production"
+      - key: APP_DEBUG
+        value: "false"
+      - key: DB_CONNECTION
+        value: "pgsql"
+      - key: CACHE_DRIVER
+        value: "file"
+      - key: SESSION_DRIVER
+        value: "file"
+      - key: QUEUE_CONNECTION
+        value: "database"
+    buildFilter:
+      paths:
+        - app/**
+        - bootstrap/**
+        - config/**
+        - database/**
+        - public/**
+        - resources/**
+        - routes/**
+        - composer.json
+        - composer.lock
+        - package.json
+        - package-lock.json
+
+databases:
+  - name: pernikahan_db
+    databaseName: pernikahan
+    plan: free
