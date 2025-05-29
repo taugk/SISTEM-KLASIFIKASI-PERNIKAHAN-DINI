@@ -1,0 +1,51 @@
+version: '3'
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: pernikahan-dini
+    container_name: pernikahan-app
+    restart: unless-stopped
+    working_dir: /var/www/html
+    volumes:
+      - ./:/var/www/html
+    networks:
+      - pernikahan-network
+
+  nginx:
+    image: nginx:alpine
+    container_name: pernikahan-nginx
+    restart: unless-stopped
+    ports:
+      - "8000:80"
+    volumes:
+      - ./:/var/www/html
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+    networks:
+      - pernikahan-network
+    depends_on:
+      - app
+
+  db:
+    image: postgres:15-alpine
+    container_name: pernikahan-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_DATABASE}
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+    networks:
+      - pernikahan-network
+    ports:
+      - "5432:5432"
+
+networks:
+  pernikahan-network:
+    driver: bridge
+
+volumes:
+  dbdata:
+    driver: local 

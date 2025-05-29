@@ -1,9 +1,9 @@
 services:
   - type: web
     name: pernikahan-dini
-    runtime: static
-    buildCommand: composer install --no-dev --optimize-autoloader && npm install && npm run build
-    startCommand: vendor/bin/heroku-php-apache2 public/
+    runtime: docker
+    region: singapore
+    healthCheckPath: /
     envVars:
       - key: APP_NAME
         value: "Pernikahan Dini"
@@ -14,26 +14,24 @@ services:
       - key: DB_CONNECTION
         value: "pgsql"
       - key: CACHE_DRIVER
-        value: "file"
+        value: "database"
       - key: SESSION_DRIVER
-        value: "file"
+        value: "database"
       - key: QUEUE_CONNECTION
         value: "database"
-    buildFilter:
-      paths:
-        - app/**
-        - bootstrap/**
-        - config/**
-        - database/**
-        - public/**
-        - resources/**
-        - routes/**
-        - composer.json
-        - composer.lock
-        - package.json
-        - package-lock.json
+      - key: FILESYSTEM_DISK
+        value: "public"
+      - key: ASSET_URL
+        value: "https://pernikahan-dini.onrender.com"
+      - key: BINDERBYTE_API_KEY
+        value: "b6ff0c9799def46d3a3f5adc3d4fb1ae25605e2fb83b8f8ed6be1aab945764c0"
+    disk:
+      name: data
+      mountPath: /var/www/html/storage
+      sizeGB: 1
 
 databases:
   - name: pernikahan_db
     databaseName: pernikahan
     plan: free
+    region: singapore
