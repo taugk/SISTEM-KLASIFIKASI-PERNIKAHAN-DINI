@@ -18,52 +18,101 @@
           </div>
 
           <form method="GET" action="{{ route('hasil_klasifikasi.graphView') }}" class="mb-4">
-            <div class="form-group row">
-              <label for="tahun" class="col-sm-2 col-form-label">Pilih Tahun</label>
-              <div class="col-sm-4">
-                <select name="tahun" id="tahun" class="form-control" onchange="this.form.submit()">
+            <div class="row">
+              <div class="col-md-3 mb-3">
+                <label for="tahun" class="form-label">Tahun</label>
+                <select name="tahun" id="tahun" class="form-control">
                   @foreach ($daftarTahun as $th)
                     <option value="{{ $th }}" {{ $th == $tahunTerpilih ? 'selected' : '' }}>{{ $th }}</option>
                   @endforeach
                 </select>
               </div>
+
+              <div class="col-md-3 mb-3">
+                <label for="wilayah" class="form-label">Wilayah</label>
+                <select name="wilayah" id="wilayah" class="form-control">
+                  <option value="">Semua Wilayah</option>
+                  @foreach ($daftarWilayah as $wilayah)
+                    <option value="{{ $wilayah }}" {{ $wilayah == $wilayahTerpilih ? 'selected' : '' }}>
+                      {{ $wilayah }}
+                    </option>
+                  @endforeach
+                </select>
+              </div>
+
+              <div class="col-md-3 mb-3">
+                <label for="risiko" class="form-label">Tingkat Risiko</label>
+                <select name="risiko" id="risiko" class="form-control">
+                  <option value="">Semua Risiko</option>
+                  @foreach ($daftarRisiko as $risiko)
+                    <option value="{{ $risiko }}" {{ $risiko == $risikoTerpilih ? 'selected' : '' }}>
+                      {{ ucfirst($risiko) }}
+                    </option>
+                  @endforeach
+                </select>
+              </div>
+
+              <div class="col-md-3 mb-3">
+                <label for="bulan" class="form-label">Bulan</label>
+                <select name="bulan" id="bulan" class="form-control">
+                  <option value="">Semua Bulan</option>
+                  @foreach ($namaBulan as $index => $bulan)
+                    <option value="{{ $index + 1 }}" {{ ($index + 1) == $bulanTerpilih ? 'selected' : '' }}>
+                      {{ $bulan }}
+                    </option>
+                  @endforeach
+                </select>
+              </div>
+
+              <div class="col-12">
+                <button type="submit" class="btn btn-primary">
+                  <i class="fas fa-filter"></i> Filter
+                </button>
+                <a href="{{ route('hasil_klasifikasi.graphView') }}" class="btn btn-secondary">
+                  <i class="fas fa-sync"></i> Reset
+                </a>
+              </div>
             </div>
           </form>
 
-          <h4 class="card-title text-center mb-4">Grafik Jumlah Pernikahan Dini Tahun {{ $tahunTerpilih }}</h4>
+          <h4 class="card-title text-center mb-4">
+            Grafik Jumlah Pernikahan Dini 
+            @if($tahunTerpilih) Tahun {{ $tahunTerpilih }} @endif
+            @if($bulanTerpilih) Bulan {{ $namaBulan[$bulanTerpilih - 1] }} @endif
+            @if($wilayahTerpilih) di {{ $wilayahTerpilih }} @endif
+            @if($risikoTerpilih) (Risiko {{ ucfirst($risikoTerpilih) }}) @endif
+          </h4>
 
           <div class="row">
-            <!-- Donut Chart per Wilayah -->
             <div class="col-md-6 mb-4">
-              <div class="card">
+              <div class="card graph-card">
                 <div class="card-body">
-                  <h6 class="text-center">Grafik Pernikahan Dini per Desa</h6>
-                  <canvas id="grafikWilayah"></canvas>
-                </div>
-              </div>
-            </div>
-
-            <!-- Bubble Chart Risiko -->
-            <div class="col-md-6 mb-4">
-              <div class="card">
-                <div class="card-body">
-                  <h6 class="text-center">Grafik Risiko Pernikahan Dini</h6>
-                  <canvas id="grafikRisiko"></canvas>
-                  <div class="text-center mt-3">
-                    <span class="badge bg-danger">Tinggi</span>
-                    <span class="badge bg-warning text-dark">Sedang</span>
-                    <span class="badge bg-info text-dark">Rendah</span>
+                  <h6 class="text-center mb-3">Pernikahan Dini per Desa</h6>
+                  <div class="graph-container">
+                    <canvas id="grafikWilayah"></canvas>
                   </div>
                 </div>
               </div>
             </div>
 
-            <!-- Scatter Chart per Bulan -->
-            <div class="col-md-12">
-              <div class="card">
+            <div class="col-md-6 mb-4">
+              <div class="card graph-card">
                 <div class="card-body">
-                  <h6 class="text-center">Grafik Pernikahan Dini per Bulan</h6>
-                  <canvas id="grafikBulan"></canvas>
+                  <h6 class="text-center mb-3">Distribusi Tingkat Risiko</h6>
+                  <div class="graph-container">
+                    <canvas id="grafikRisiko"></canvas>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-md-12 mb-4">
+              <div class="card graph-card">
+                <div class="card-body">
+                  <h6 class="text-center mb-3">Tren Pernikahan Dini per Bulan</h6>
+                  <div class="graph-container graph-container-lg">
+                    <canvas id="grafikBulan"></canvas>
+                  </div>
                 </div>
               </div>
             </div>
@@ -73,114 +122,174 @@
       </div>
     </div>
   </div>
+</div>
 @endsection
+
+@push('styles')
+<style>
+.graph-card {
+  height: 100%;
+  margin-bottom: 0;
+}
+
+.card-body {
+  padding: 1.25rem;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.graph-container {
+  position: relative;
+  height: 350px;
+  flex: 1;
+  min-height: 0;
+}
+
+.graph-container-lg {
+  height: 400px;
+}
+
+h6.text-center {
+  margin-bottom: 1rem;
+  font-weight: 600;
+}
+</style>
+@endpush
 
 @push('scripts')
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+    // Get the data
     const wilayahLabels = @json($wilayahLabels);
     const wilayahData = @json($wilayahData);
 
-    const resikoLabels = @json($resikoLabels);
-    const resikoData = @json($resikoData);
+    // Create color array
+    const colors = [
+        '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#FF9F40',
+        '#9966FF', '#FF99CC', '#99FF99', '#FF9966', '#99CCFF'
+    ];
 
-    const bulanLabels = @json($bulanLabels);
-    const bulanData = @json($bulanData);
+    // Common chart options
+    const commonOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                position: 'right'
+            }
+        }
+    };
 
+    // Donut Chart - Pernikahan Dini per Desa
     new Chart(document.getElementById('grafikWilayah'), {
         type: 'doughnut',
         data: {
-            labels: wilayahLabels,
+            labels: wilayahLabels.length ? wilayahLabels : ['Tidak Ada Data'],
             datasets: [{
-                label: 'Jumlah Pernikahan Dini',
-                data: wilayahData,
-                backgroundColor: ['#36A2EB', '#FF6384', '#FFCE56', '#4BC0C0', '#FF9F40'],
-                borderColor: ['#ffffff'],
-                borderWidth: 2
+                data: wilayahData.length ? wilayahData : [1],
+                backgroundColor: wilayahData.length ? 
+                    colors.slice(0, wilayahData.length) : 
+                    ['#E0E0E0'] // Gray color for no data
             }]
         },
         options: {
-            responsive: true,
+            ...commonOptions,
             plugins: {
-                legend: { position: 'top' },
-                tooltip: { callbacks: { label: (tooltipItem) => `${tooltipItem.label}: ${tooltipItem.raw}` } }
+                legend: {
+                    position: 'right',
+                    labels: {
+                        generateLabels: function(chart) {
+                            const data = chart.data;
+                            if (data.labels.length && data.datasets.length) {
+                                if (!wilayahData.length) {
+                                    return [{
+                                        text: 'Tidak Ada Data',
+                                        fillStyle: '#E0E0E0',
+                                        index: 0
+                                    }];
+                                }
+                                return data.labels.map(function(label, i) {
+                                    const value = data.datasets[0].data[i];
+                                    const total = data.datasets[0].data.reduce((a, b) => a + b, 0);
+                                    const percentage = ((value / total) * 100).toFixed(1);
+                                    return {
+                                        text: `${label}: ${value} (${percentage}%)`,
+                                        fillStyle: colors[i],
+                                        index: i
+                                    };
+                                });
+                            }
+                            return [];
+                        }
+                    }
+                }
             }
         }
     });
 
+    // Bar Chart - Distribusi Risiko
     new Chart(document.getElementById('grafikRisiko'), {
-        type: 'bubble',
+        type: 'bar',
         data: {
-            labels: resikoLabels,
+            labels: @json($resikoLabels),
             datasets: [{
-                label: 'Distribusi Risiko Pernikahan Dini',
-                data: resikoData,
-                backgroundColor: resikoData.map(d =>
-                    d.kategori === 'Tinggi' ? '#e31a1c' :
-                    d.kategori === 'Sedang' ? '#fd8d3c' : '#fecc5c'
-                ),
-                borderColor: '#ffffff',
+                label: 'Jumlah Wilayah',
+                data: @json($resikoData->pluck('y')),
+                backgroundColor: [
+                    '#e31a1c',  // Merah untuk risiko tinggi
+                    '#fd8d3c',  // Orange untuk risiko sedang
+                    '#fecc5c'   // Kuning untuk risiko rendah
+                ],
                 borderWidth: 1
             }]
         },
         options: {
-            responsive: true,
+            ...commonOptions,
             plugins: {
-                legend: { display: false },
-                tooltip: {
-                    callbacks: {
-                        label: function(tooltipItem) {
-                            return `Jumlah: ${tooltipItem.raw.y} (${resikoLabels[tooltipItem.dataIndex]})`;
-                        }
-                    }
+                legend: {
+                    display: false
                 }
             },
             scales: {
-                x: { title: { display: true, text: 'Kategori Risiko' } },
-                y: { title: { display: true, text: 'Jumlah' }, beginAtZero: true }
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: 1
+                    }
+                }
             }
         }
     });
 
+    // Line Chart - Tren per Bulan
     new Chart(document.getElementById('grafikBulan'), {
-        type: 'scatter',
+        type: 'line',
         data: {
+            labels: @json($bulanLabels),
             datasets: [{
-                label: 'Jumlah Pernikahan Dini per Bulan',
-                data: bulanData.map((value, index) => ({ x: index, y: value })),
-                backgroundColor: '#36A2EB',
-                borderColor: '#ffffff',
-                borderWidth: 1,
-                pointRadius: 5
+                label: 'Jumlah Kasus',
+                data: @json($bulanData),
+                borderColor: '#36A2EB',
+                backgroundColor: 'rgba(54, 162, 235, 0.1)',
+                fill: true,
+                tension: 0.4
             }]
         },
         options: {
-            responsive: true,
+            ...commonOptions,
             plugins: {
-                legend: { display: false },
-                tooltip: {
-                    callbacks: {
-                        label: function(tooltipItem) {
-                            return `Jumlah: ${tooltipItem.raw.y} per bulan`;
-                        }
-                    }
+                legend: {
+                    position: 'top'
                 }
             },
             scales: {
-                x: {
-                    type: 'linear',
-                    title: { display: true, text: 'Bulan' },
-                    ticks: {
-                        stepSize: 1,
-                        callback: function(value) {
-                            return bulanLabels[value] || value;
-                        }
-                    }
-                },
                 y: {
-                    title: { display: true, text: 'Jumlah Pernikahan Dini' },
-                    beginAtZero: true
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: 1
+                    }
                 }
             }
         }

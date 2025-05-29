@@ -44,41 +44,65 @@ class DataWilayahController extends Controller
     }
 
     public function tambahDataPost(Request $request)
-{
-    $request->validate([
-        'desa' => 'required|string',
-        'kecamatan' => 'required|string',
-        'kabupaten' => 'required|string',
-        'provinsi' => 'required|string',
-    ]);
+    {
+        try {
+            $request->validate([
+                'desa' => 'required|string',
+                'kecamatan' => 'required|string',
+                'kabupaten' => 'required|string',
+                'provinsi' => 'required|string'
+            ]);
 
-    try {
-        // Cek apakah data sudah ada
-        $exists = DataWilayah::where('desa', $request->desa)
-            ->where('kecamatan', $request->kecamatan)
-            ->where('kabupaten', $request->kabupaten)
-            ->where('provinsi', $request->provinsi)
-            ->exists();
+            // Convert input to uppercase
+            $desa = strtoupper($request->desa);
+            $kecamatan = strtoupper($request->kecamatan);
+            $kabupaten = strtoupper($request->kabupaten);
+            $provinsi = strtoupper($request->provinsi);
 
-        if ($exists) {
-            return redirect()->route('data_wilayah.index')->with('error', 'Data wilayah sudah ada.');
+            // Cek apakah data sudah ada
+            $exists = DataWilayah::where('desa', $desa)
+                ->where('kecamatan', $kecamatan)
+                ->where('kabupaten', $kabupaten)
+                ->where('provinsi', $provinsi)
+                ->exists();
+
+            if ($exists) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Data wilayah sudah ada dalam database.'
+                ], 400);
+            }
+
+            // Simpan data wilayah ke database
+            DataWilayah::create([
+                'desa' => $desa,
+                'kecamatan' => $kecamatan,
+                'kabupaten' => $kabupaten,
+                'provinsi' => $provinsi,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Data wilayah berhasil ditambahkan.'
+            ], 200);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            \Log::error('Validation error saat menambah wilayah: ' . json_encode($e->errors()));
+            return response()->json([
+                'success' => false,
+                'message' => 'Data tidak valid',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            \Log::error('Error saat menambah wilayah: ' . $e->getMessage());
+            \Log::error($e->getTraceAsString());
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan: ' . $e->getMessage()
+            ], 500);
         }
-
-        // Simpan data
-        DataWilayah::create([
-            'desa' => $request->desa,
-            'kecamatan' => $request->kecamatan,
-            'kabupaten' => $request->kabupaten,
-            'provinsi' => $request->provinsi,
-        ]);
-
-        return redirect()->route('data_wilayah.index')->with('success', 'Data berhasil ditambahkan.');
-    } catch (\Exception $e) {
-        // Tangani error
-        return redirect()->route('data_wilayah.index')->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
     }
-}
-
 
     public function updateData(Request $request, $id)
     {
@@ -89,10 +113,18 @@ class DataWilayahController extends Controller
             'provinsi' => 'required|string',
         ]);
 
-        $data = DataWilayah::findOrFail($id);
-        $data->update($request->only(['desa', 'kecamatan', 'kabupaten', 'provinsi']));
+        // Convert input to uppercase
+        $data = [
+            'desa' => strtoupper($request->desa),
+            'kecamatan' => strtoupper($request->kecamatan),
+            'kabupaten' => strtoupper($request->kabupaten),
+            'provinsi' => strtoupper($request->provinsi),
+        ];
 
-        return redirect()->route('dashboard.data_wilayah.index')->with('success', 'Data berhasil diperbarui.');
+        $wilayah = DataWilayah::findOrFail($id);
+        $wilayah->update($data);
+
+        return redirect()->route('data_wilayah.index')->with('success', 'Data berhasil diperbarui.');
     }
 
     public function deleteData($id)

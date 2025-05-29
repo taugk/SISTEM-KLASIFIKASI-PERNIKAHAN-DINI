@@ -115,13 +115,57 @@ document.addEventListener('DOMContentLoaded', function () {
       datasets: [{
         label: 'Pernikahan Dini',
         data: total,
-        borderColor: '#36A2EB',
-        backgroundColor: 'rgba(54,162,235,0.2)',
+        borderColor: '#e31a1c',
+        backgroundColor: 'rgba(227, 26, 28, 0.1)',
         tension: 0.4,
-        fill: true
+        fill: true,
+        pointBackgroundColor: '#e31a1c',
+        pointRadius: 4,
+        pointHoverRadius: 6
       }]
     },
-    options: { responsive: true }
+    options: { 
+      responsive: true,
+      plugins: {
+        legend: {
+          position: 'top',
+        },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              return `Jumlah: ${context.raw} kasus`;
+            }
+          }
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          ticks: {
+            precision: 0,
+            callback: function(value) {
+              if (value % 1 === 0) {
+                return value;
+              }
+            }
+          },
+          title: {
+            display: true,
+            text: 'Jumlah Kasus'
+          }
+        },
+        x: {
+          ticks: {
+            maxRotation: 45,
+            minRotation: 45
+          },
+          title: {
+            display: true,
+            text: 'Bulan'
+          }
+        }
+      }
+    }
   });
 
   new Chart(document.getElementById('grafikResiko'), {
@@ -134,7 +178,31 @@ document.addEventListener('DOMContentLoaded', function () {
         backgroundColor: ['#e31a1c','#fd8d3c','#fecc5c']
       }]
     },
-    options: { responsive: true }
+    options: { 
+      responsive: true,
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: {
+            padding: 20,
+            font: {
+              size: 12
+            }
+          }
+        },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              let label = context.label || '';
+              let value = context.raw || 0;
+              let total = context.dataset.data.reduce((a, b) => a + b, 0);
+              let percentage = Math.round((value * 100) / total);
+              return `${label}: ${value} (${percentage}%)`;
+            }
+          }
+        }
+      }
+    }
   });
 });
 </script>

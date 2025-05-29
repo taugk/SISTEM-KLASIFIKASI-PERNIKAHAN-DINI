@@ -160,6 +160,14 @@ Route::middleware(['auth', 'role:admin,kepala kua'])->prefix('laporan')->name('l
 */
 Route::post('/predict', [ModelAPIController::class, 'predict'])->name('predict');
 
+// Wilayah Routes
+Route::prefix('api/wilayah')->group(function () {
+    Route::get('provinsi', [App\Http\Controllers\Api\WilayahController::class, 'provinsi']);
+    Route::get('kabupaten', [App\Http\Controllers\Api\WilayahController::class, 'kabupaten']);
+    Route::get('kecamatan', [App\Http\Controllers\Api\WilayahController::class, 'kecamatan']);
+    Route::get('desa', [App\Http\Controllers\Api\WilayahController::class, 'desa']);
+});
+
 
 
 

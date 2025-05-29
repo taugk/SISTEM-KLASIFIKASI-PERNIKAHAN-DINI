@@ -56,9 +56,30 @@
     <!-- FullCalendar CSS -->
 <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" rel="stylesheet" />
 
+    <!-- Toastr CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css">
+
   </head>
   <body>
+    <!-- Loading Spinner -->
+    <div id="universal-spinner" class="loading-overlay">
+      <div class="loader loader-lg"></div>
+    </div>
 
+    <style>
+      .loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(255, 255, 255, 0.8);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+      }
+    </style>
 
     <div class="wrapper">
       @include('partials.sidebar')
@@ -144,7 +165,7 @@
     <!-- jQuery Scrollbar -->
     <script src="{{ asset("assets/js/plugin/jquery-scrollbar/jquery.scrollbar.min.js") }}"></script>
     <!-- Chart JS -->
-    <script src="{{ asset("assets/js/plugin/chart.js/chart.min.js") }}"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- jQuery Sparkline -->
     <script src="{{ asset("assets/js/plugin/jquery.sparkline/jquery.sparkline.min.js") }}"></script>
     <!-- Chart Circle -->
@@ -411,8 +432,88 @@
 
 
     @stack('scripts')
+
+    <script>
+      // Loading spinner functions
+      window.showLoading = function() {
+        document.getElementById('universal-spinner').style.display = 'flex';
+      };
+
+      window.hideLoading = function() {
+        document.getElementById('universal-spinner').style.display = 'none';
+      };
+
+      // Hide loading spinner when page is fully loaded
+      window.addEventListener('load', function() {
+        hideLoading();
+      });
+
+      // Show loading spinner before page unload
+      window.addEventListener('beforeunload', function() {
+        showLoading();
+      });
+
+      // Add loading spinner to all form submissions
+      document.addEventListener('submit', function(e) {
+        showLoading();
+      });
+
+      // Add loading spinner to all AJAX requests
+      $(document).ajaxStart(function() {
+        showLoading();
+      });
+
+      $(document).ajaxStop(function() {
+        hideLoading();
+      });
+    </script>
+
+    <!-- Toastr JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
+
+    <script>
+        // Toastr configuration
+        toastr.options = {
+            "closeButton": true,
+            "debug": false,
+            "newestOnTop": true,
+            "progressBar": true,
+            "positionClass": "toast-top-right",
+            "preventDuplicates": false,
+            "onclick": null,
+            "showDuration": "300",
+            "hideDuration": "1000",
+            "timeOut": "5000",
+            "extendedTimeOut": "1000",
+            "showEasing": "swing",
+            "hideEasing": "linear",
+            "showMethod": "fadeIn",
+            "hideMethod": "fadeOut"
+        };
+
+        // Show notification if exists in session
+        @if(Session::has('success'))
+            toastr.success("{{ Session::get('success') }}", "Sukses");
+        @endif
+
+        @if(Session::has('error'))
+            toastr.error("{{ Session::get('error') }}", "Error");
+        @endif
+
+        @if(Session::has('info'))
+            toastr.info("{{ Session::get('info') }}", "Informasi");
+        @endif
+
+        @if(Session::has('warning'))
+            toastr.warning("{{ Session::get('warning') }}", "Peringatan");
+        @endif
+
+        // Show validation errors
+        @if($errors->any())
+            @foreach($errors->all() as $error)
+                toastr.error("{{ $error }}", "Error");
+            @endforeach
+        @endif
+    </script>
   </body>
-
-
-
 </html>

@@ -112,20 +112,28 @@
                         </div>
                         <div class="modal-body">
                             <div class="form-group mb-3">
-                                <label for="desa">Nama Desa</label>
-                                <input type="text" name="desa" class="form-control" required>
-                            </div>
-                            <div class="form-group mb-3">
-                                <label for="kecamatan">Kecamatan</label>
-                                <input type="text" name="kecamatan" class="form-control" required>
+                                <label for="provinsi">Provinsi</label>
+                                <select class="form-control" id="provinsi" name="provinsi" required>
+                                    <option value="">Pilih Provinsi</option>
+                                </select>
                             </div>
                             <div class="form-group mb-3">
                                 <label for="kabupaten">Kabupaten</label>
-                                <input type="text" name="kabupaten" class="form-control" required>
+                                <select class="form-control" id="kabupaten" name="kabupaten" required disabled>
+                                    <option value="">Pilih Kabupaten</option>
+                                </select>
                             </div>
                             <div class="form-group mb-3">
-                                <label for="provinsi">Provinsi</label>
-                                <input type="text" name="provinsi" class="form-control" required>
+                                <label for="kecamatan">Kecamatan</label>
+                                <select class="form-control" id="kecamatan" name="kecamatan" required disabled>
+                                    <option value="">Pilih Kecamatan</option>
+                                </select>
+                            </div>
+                            <div class="form-group mb-3">
+                                <label for="desa">Desa/Kelurahan</label>
+                                <select class="form-control" id="desa" name="desa" required disabled>
+                                    <option value="">Pilih Desa/Kelurahan</option>
+                                </select>
                             </div>
                         </div>
                         <div class="modal-footer">
@@ -178,3 +186,267 @@
     </div>
 
 @endsection
+
+@push('scripts')
+<script>
+$(document).ready(function() {
+    // Load data provinsi saat modal dibuka
+    $('#modalTambahWilayah').on('show.bs.modal', function() {
+        loadProvinsi();
+    });
+
+    // Reset form saat modal ditutup
+    $('#modalTambahWilayah').on('hidden.bs.modal', function() {
+        $('#provinsi').val('');
+        $('#kabupaten, #kecamatan, #desa').val('').prop('disabled', true);
+    });
+
+    // Event handler untuk perubahan provinsi
+    $('#provinsi').on('change', function() {
+        const provinsiId = $(this).val();
+        if (provinsiId) {
+            loadKabupaten(provinsiId);
+            $('#kabupaten').prop('disabled', false);
+            $('#kecamatan, #desa').prop('disabled', true).html('<option value="">Pilih...</option>');
+        } else {
+            $('#kabupaten, #kecamatan, #desa').prop('disabled', true).html('<option value="">Pilih...</option>');
+        }
+    });
+
+    // Event handler untuk perubahan kabupaten
+    $('#kabupaten').on('change', function() {
+        const kabupatenId = $(this).val();
+        if (kabupatenId) {
+            loadKecamatan(kabupatenId);
+            $('#kecamatan').prop('disabled', false);
+            $('#desa').prop('disabled', true).html('<option value="">Pilih...</option>');
+        } else {
+            $('#kecamatan, #desa').prop('disabled', true).html('<option value="">Pilih...</option>');
+        }
+    });
+
+    // Event handler untuk perubahan kecamatan
+    $('#kecamatan').on('change', function() {
+        const kecamatanId = $(this).val();
+        if (kecamatanId) {
+            loadDesa(kecamatanId);
+            $('#desa').prop('disabled', false);
+        } else {
+            $('#desa').prop('disabled', true).html('<option value="">Pilih...</option>');
+        }
+    });
+
+    // Fungsi untuk memuat data provinsi
+    function loadProvinsi() {
+        $.ajax({
+            url: "{{ url('api/wilayah/provinsi') }}",
+            method: 'GET',
+            beforeSend: function() {
+                $('#provinsi').html('<option value="">Loading...</option>');
+            },
+            success: function(response) {
+                let html = '<option value="">Pilih Provinsi</option>';
+                if (Array.isArray(response)) {
+                    response.forEach(function(item) {
+                        html += `<option value="${item.id}">${item.nama}</option>`;
+                    });
+                    $('#provinsi').html(html);
+                } else {
+                    console.error('Invalid response format:', response);
+                    Swal.fire('Error', 'Format data provinsi tidak valid', 'error');
+                }
+            },
+            error: function(xhr) {
+                console.error('Error loading provinsi:', xhr);
+                let errorMessage = 'Gagal memuat data provinsi';
+                
+                if (xhr.responseJSON && xhr.responseJSON.message) {
+                    errorMessage = xhr.responseJSON.message;
+                }
+                
+                $('#provinsi').html('<option value="">Error loading data</option>');
+                Swal.fire('Error', errorMessage, 'error');
+            }
+        });
+    }
+
+    // Fungsi untuk memuat data kabupaten
+    function loadKabupaten(provinsiId) {
+        $.ajax({
+            url: "{{ url('api/wilayah/kabupaten') }}",
+            method: 'GET',
+            data: { provinsi_id: provinsiId },
+            beforeSend: function() {
+                $('#kabupaten').html('<option value="">Loading...</option>');
+            },
+            success: function(response) {
+                let html = '<option value="">Pilih Kabupaten</option>';
+                if (Array.isArray(response)) {
+                    response.forEach(function(item) {
+                        html += `<option value="${item.id}">${item.nama}</option>`;
+                    });
+                    $('#kabupaten').html(html);
+                } else {
+                    console.error('Invalid response format:', response);
+                    Swal.fire('Error', 'Format data kabupaten tidak valid', 'error');
+                }
+            },
+            error: function(xhr) {
+                console.error('Error loading kabupaten:', xhr);
+                let errorMessage = 'Gagal memuat data kabupaten';
+                
+                if (xhr.responseJSON && xhr.responseJSON.message) {
+                    errorMessage = xhr.responseJSON.message;
+                }
+                
+                $('#kabupaten').html('<option value="">Error loading data</option>');
+                Swal.fire('Error', errorMessage, 'error');
+            }
+        });
+    }
+
+    // Fungsi untuk memuat data kecamatan
+    function loadKecamatan(kabupatenId) {
+        $.ajax({
+            url: "{{ url('api/wilayah/kecamatan') }}",
+            method: 'GET',
+            data: { kabupaten_id: kabupatenId },
+            beforeSend: function() {
+                $('#kecamatan').html('<option value="">Loading...</option>');
+            },
+            success: function(response) {
+                let html = '<option value="">Pilih Kecamatan</option>';
+                if (Array.isArray(response)) {
+                    response.forEach(function(item) {
+                        html += `<option value="${item.id}">${item.nama}</option>`;
+                    });
+                    $('#kecamatan').html(html);
+                } else {
+                    console.error('Invalid response format:', response);
+                    Swal.fire('Error', 'Format data kecamatan tidak valid', 'error');
+                }
+            },
+            error: function(xhr) {
+                console.error('Error loading kecamatan:', xhr);
+                let errorMessage = 'Gagal memuat data kecamatan';
+                
+                if (xhr.responseJSON && xhr.responseJSON.message) {
+                    errorMessage = xhr.responseJSON.message;
+                }
+                
+                $('#kecamatan').html('<option value="">Error loading data</option>');
+                Swal.fire('Error', errorMessage, 'error');
+            }
+        });
+    }
+
+    // Fungsi untuk memuat data desa
+    function loadDesa(kecamatanId) {
+        $.ajax({
+            url: "{{ url('api/wilayah/desa') }}",
+            method: 'GET',
+            data: { kecamatan_id: kecamatanId },
+            beforeSend: function() {
+                $('#desa').html('<option value="">Loading...</option>');
+            },
+            success: function(response) {
+                let html = '<option value="">Pilih Desa/Kelurahan</option>';
+                if (Array.isArray(response)) {
+                    response.forEach(function(item) {
+                        html += `<option value="${item.id}">${item.nama}</option>`;
+                    });
+                    $('#desa').html(html);
+                } else {
+                    console.error('Invalid response format:', response);
+                    Swal.fire('Error', 'Format data desa tidak valid', 'error');
+                }
+            },
+            error: function(xhr) {
+                console.error('Error loading desa:', xhr);
+                let errorMessage = 'Gagal memuat data desa';
+                
+                if (xhr.responseJSON && xhr.responseJSON.message) {
+                    errorMessage = xhr.responseJSON.message;
+                }
+                
+                $('#desa').html('<option value="">Error loading data</option>');
+                Swal.fire('Error', errorMessage, 'error');
+            }
+        });
+    }
+
+    // Handle form submission dengan AJAX
+    $('#modalTambahWilayah form').on('submit', function(e) {
+        e.preventDefault();
+
+        // Validasi form
+        if (!$('#provinsi').val() || !$('#kabupaten').val() || !$('#kecamatan').val() || !$('#desa').val()) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Oops...',
+                text: 'Silakan lengkapi semua field yang diperlukan!'
+            });
+            return;
+        }
+
+        // Tampilkan loading
+        Swal.fire({
+            title: 'Mohon Tunggu',
+            text: 'Sedang menyimpan data...',
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            showConfirmButton: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+
+        // Siapkan data
+        var formData = {
+            _token: $('input[name="_token"]').val(),
+            provinsi: $('#provinsi option:selected').text(),
+            kabupaten: $('#kabupaten option:selected').text(),
+            kecamatan: $('#kecamatan option:selected').text(),
+            desa: $('#desa option:selected').text()
+        };
+
+        // Kirim data dengan AJAX
+        $.ajax({
+            url: $(this).attr('action'),
+            type: 'POST',
+            data: formData,
+            success: function(response) {
+                $('#modalTambahWilayah').modal('hide');
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Berhasil!',
+                    text: response.message,
+                    showConfirmButton: true
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        window.location.reload();
+                    }
+                });
+            },
+            error: function(xhr) {
+                let message = 'Terjadi kesalahan, silakan coba lagi.';
+                
+                if (xhr.responseJSON) {
+                    if (xhr.responseJSON.errors) {
+                        message = Object.values(xhr.responseJSON.errors).flat().join('\n');
+                    } else if (xhr.responseJSON.message) {
+                        message = xhr.responseJSON.message;
+                    }
+                }
+                
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Oops...',
+                    text: message
+                });
+            }
+        });
+    });
+});
+</script>
+@endpush

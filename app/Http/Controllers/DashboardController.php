@@ -24,7 +24,9 @@ class DashboardController extends Controller
                                             ->count();
 
         // Ambil data tren pernikahan per bulan dan tahun
-        $rawData = DataPernikahan::selectRaw('YEAR(tanggal_akad) as tahun, MONTH(tanggal_akad) as bulan, COUNT(*) as total')
+        $rawData = HasilKlasifikasi::join('pernikahan', 'hasil_klasifikasi.id_pernikahan', '=', 'pernikahan.id')
+            ->where('hasil_klasifikasi.kategori_pernikahan', 'Pernikahan Dini')
+            ->selectRaw('YEAR(pernikahan.tanggal_akad) as tahun, MONTH(pernikahan.tanggal_akad) as bulan, COUNT(*) as total')
             ->groupBy('tahun', 'bulan')
             ->orderBy('tahun', 'ASC')
             ->orderBy('bulan', 'ASC')
@@ -41,7 +43,7 @@ class DashboardController extends Controller
         $datatren = $rawData->map(function ($item) use ($nama_bulan) {
             return [
                 'tahun' => $item->tahun,
-                'bulan' => $nama_bulan[(int) $item->bulan],
+                'bulan' => $nama_bulan[(int) $item->bulan] . ' ' . $item->tahun,
                 'total' => $item->total
             ];
         });
@@ -68,7 +70,15 @@ class DashboardController extends Controller
         // Distribusi risiko wilayah
         $resikoData = Resiko_Wilayah::select('resiko_wilayah', DB::raw('count(*) as jumlah'))
             ->groupBy('resiko_wilayah')
-            ->get();
+            ->orderByRaw("FIELD(resiko_wilayah, 'tinggi', 'sedang', 'rendah')")  // Sort in specific order
+            ->get()
+            ->map(function ($item) {
+                // Capitalize first letter and format the label
+                return [
+                    'resiko_wilayah' => ucfirst(strtolower($item->resiko_wilayah)),
+                    'jumlah' => $item->jumlah
+                ];
+            });
 
         $labelRisiko = $resikoData->pluck('resiko_wilayah');
         $jumlahRisiko = $resikoData->pluck('jumlah');
