@@ -40,6 +40,7 @@ class Resiko_Wilayah extends Model
         'jumlah_pernikahan',
         'jumlah_pernikahan_dini',
         'resiko_wilayah',
+        'rekomendasi_penyuluhan',
         'periode',
         'id_wilayah'
     ];

@@ -53,6 +53,7 @@
                             <th>Pendidikan Dominan Suami</th>
                             <th>Pendidikan Dominan Istri</th>
                             <th>Gender Dini Dominan</th>
+                            <th>Rekomendasi Penyuluhan</th>
                             <th>Action</th>
                         </tr>
                     </thead>
@@ -68,12 +69,17 @@
                             <td>{{ $item['pendidikan_dominan_istri'] ?? '-' }}</td>
                             <td>{{ $item['gender_dominan'] }}</td>
                             <td>
-                                <a href="{{ route('rekomendasi.detail', $item['wilayah_id']) }}" class="btn btn-sm btn-info" title="Lihat Detail">
+                                @if($item['rekomendasi_penyuluhan'])
+                                    <span class="badge bg-info">{{ $item['rekomendasi_penyuluhan'] }}</span>
+                                @else
+                                    <span class="badge bg-secondary">Tidak ada rekomendasi</span>
+                                @endif
+                            </td>
+                            <td>
+                                <a href="{{ route('rekomendasi_penyuluhan.detail_rekomendasi', $item['wilayah_id']) }}" class="btn btn-sm btn-info" title="Lihat Detail">
                                     <i class="fas fa-eye"></i>
                                 </a>
-                                <a href="{{ route('rekomendasi.detail', $item['wilayah_id']) }}" class="btn btn-sm btn-success" title="Rekomendasi Penyuluhan">
-                                    <i class="fas fa-lightbulb"></i>
-                                </a>
+
                             </td>
                         </tr>
                         @empty

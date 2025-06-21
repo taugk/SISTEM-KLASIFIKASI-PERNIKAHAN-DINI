@@ -196,86 +196,114 @@ public function detail(Request $request, $id)
 {
     $data = DataWilayah::findOrFail($id);
 
-    // Ambil data pernikahan
-    $pernikahanQuery = $data->pernikahan()->orderBy('tanggal_akad', 'desc');
-
-    if ($request->filled('filter_tahun')) {
-        $tahun = $request->filter_tahun;
-        $pernikahanQuery->whereYear('tanggal_akad', $tahun);
-    }
-
-    $pernikahan = $pernikahanQuery->get();
-
     // Ambil resiko wilayah terbaru
     $resiko_wilayah_terbaru = Resiko_Wilayah::where('id_wilayah', $id)
         ->orderByDesc('periode')
         ->first();
 
+    // Ambil data pernikahan dan filter berdasarkan tahun
+    $pernikahanQuery = $data->pernikahan()->orderBy('tanggal_akad', 'desc');
+
+    if ($request->filled('filter_tahun')) {
+        $tahun = $request->filter_tahun;
+        $pernikahanQuery->whereYear('tanggal_akad', $tahun);
+    } elseif ($resiko_wilayah_terbaru) {
+        $tahun = $resiko_wilayah_terbaru->periode;
+        $pernikahanQuery->whereYear('tanggal_akad', $tahun);
+    } else {
+        $tahun = null;
+    }
+
+    $pernikahan = $pernikahanQuery->get();
+
+    // Statistik
     $totalPernikahan = $pernikahan->count();
     $totalPernikahanDini = $pernikahan->where('kategori_pernikahan', 'Pernikahan Dini')->count();
+    $rataUsiaSuami = $totalPernikahan > 0 ? $pernikahan->avg('usia_suami') : 0;
+    $rataUsiaIstri = $totalPernikahan > 0 ? $pernikahan->avg('usia_istri') : 0;
 
-    $rataUsiaSuami = $pernikahan->avg('usia_suami');
-    $rataUsiaIstri = $pernikahan->avg('usia_istri');
+    // Ambil hasil klasifikasi
+    $idsPernikahan = $pernikahan->pluck('id');
+    $hasilKlasifikasi = HasilKlasifikasi::whereIn('id_pernikahan', $idsPernikahan)->get()->keyBy('id_pernikahan');
 
-    // === KUMPULKAN SEMUA PENYEBAB ===
-    $daftar_penyebab = collect();
+    $faktor_pemicu = collect();
 
     foreach ($pernikahan as $item) {
-        $hasil = \App\Models\HasilKlasifikasi::where('id_pernikahan', $item->id)->first();
-        if ($hasil && $hasil->penyebab) {
-            $penyebab_list = json_decode($hasil->penyebab, true);
-            if (is_array($penyebab_list)) {
-                foreach ($penyebab_list as $penyebab) {
-                    $daftar_penyebab->push($penyebab);
+        $hasil = $hasilKlasifikasi->get($item->id);
+
+        if ($hasil) {
+            // Ambil penyebab
+            if ($hasil->penyebab) {
+                $penyebab_list = json_decode($hasil->penyebab, true);
+                if (is_array($penyebab_list)) {
+                    foreach ($penyebab_list as $penyebab) {
+                        $faktor_pemicu->push($penyebab);
+                    }
+                }
+            }
+
+            // Ambil dampak
+            if ($hasil->dampak) {
+                $dampak_list = json_decode($hasil->dampak, true);
+                if (is_array($dampak_list)) {
+                    foreach ($dampak_list as $dampak) {
+                        $faktor_pemicu->push($dampak);
+                    }
                 }
             }
         }
     }
 
-    // Hitung jumlah masing-masing penyebab
-    $penyebab_terbanyak = $daftar_penyebab->countBy()->sortDesc();
+    // Hitung dan ambil 3 faktor terbanyak (gabungan penyebab + dampak)
+    $penyebab_terbanyak = $faktor_pemicu->countBy()->sortDesc()->take(3);
 
-    // === Rekomendasi Berdasarkan Penyebab (Suami & Istri) ===
+    // Buat rekomendasi berdasarkan 3 faktor teratas
     $rekomendasi = [];
 
-    foreach ($penyebab_terbanyak as $penyebab => $jumlah) {
+    foreach ($penyebab_terbanyak as $faktor => $jumlah) {
         // Pendidikan
-        if (str_contains($penyebab, 'Pendidikan Istri')) {
+        if (str_contains($faktor, 'Pendidikan Istri')) {
             $rekomendasi[] = 'Dorong program beasiswa dan kelanjutan pendidikan perempuan.';
         }
-
-        if (str_contains($penyebab, 'Pendidikan Suami')) {
+        if (str_contains($faktor, 'Pendidikan Suami')) {
             $rekomendasi[] = 'Perkuat edukasi formal bagi laki-laki sebagai calon kepala keluarga.';
         }
 
         // Umur
-        if (str_contains($penyebab, 'Umur Istri')) {
+        if (str_contains($faktor, 'Umur Istri')) {
             $rekomendasi[] = 'Adakan penyuluhan usia ideal menikah untuk remaja putri.';
         }
-
-        if (str_contains($penyebab, 'Umur Suami')) {
+        if (str_contains($faktor, 'Umur Suami')) {
             $rekomendasi[] = 'Sosialisasi kedewasaan usia nikah kepada remaja laki-laki.';
         }
 
         // Pekerjaan
-        if (str_contains($penyebab, 'Pekerjaan Istri')) {
+        if (str_contains($faktor, 'Pekerjaan Istri')) {
             $rekomendasi[] = 'Sediakan pelatihan kewirausahaan dan akses kerja untuk perempuan.';
         }
-
-        if (str_contains($penyebab, 'Pekerjaan Suami')) {
+        if (str_contains($faktor, 'Pekerjaan Suami')) {
             $rekomendasi[] = 'Dorong program pelatihan kerja dan sertifikasi bagi pria muda.';
         }
 
         // Status
-        if (str_contains($penyebab, 'Status Istri') || str_contains($penyebab, 'Status Suami')) {
+        if (str_contains($faktor, 'Status Istri') || str_contains($faktor, 'Status Suami')) {
             $rekomendasi[] = 'Sosialisasi pentingnya status legal dalam pernikahan kepada calon pasangan.';
+        }
+
+        // Dampak: Tambah contoh
+        if (str_contains($faktor, 'Putus Sekolah')) {
+            $rekomendasi[] = 'Sosialisasikan pentingnya pendidikan berkelanjutan setelah menikah.';
+        }
+        if (str_contains($faktor, 'KDRT')) {
+            $rekomendasi[] = 'Adakan edukasi bahaya kekerasan dalam rumah tangga dan layanan bantuan.';
+        }
+        if (str_contains($faktor, 'Kesehatan Ibu')) {
+            $rekomendasi[] = 'Laksanakan penyuluhan kesehatan reproduksi bagi calon pengantin muda.';
         }
     }
 
-    // Hilangkan duplikat
     $rekomendasi = array_unique($rekomendasi);
 
-    // Kirim ke view
     return view('dashboard.hasil_klasifikasi.detail_hasil', compact(
         'data',
         'totalPernikahan',
@@ -284,9 +312,11 @@ public function detail(Request $request, $id)
         'rataUsiaIstri',
         'resiko_wilayah_terbaru',
         'penyebab_terbanyak',
-        'rekomendasi'
+        'rekomendasi',
+        'tahun'
     ));
 }
+
 
 
 
@@ -734,8 +764,6 @@ public function rekomendasi(Request $request)
 {
     $tahun = $request->input('tahun');
 
-
-
     // Dropdown Tahun
     $daftarTahun = DB::table('resiko_wilayah')
         ->selectRaw('DISTINCT LEFT(periode, 4) as tahun')
@@ -779,7 +807,6 @@ public function rekomendasi(Request $request)
             return $resikoTahunIni->resiko_wilayah === 'tinggi';
         }
 
-
         return false;
     });
 
@@ -796,16 +823,20 @@ public function rekomendasi(Request $request)
     $istriDini = $pernikahanDini->filter(fn($p) => $p->usia_istri <= 19)->count();
     $genderDominan = $suamiDini > $istriDini ? 'Laki-laki' : 'Perempuan';
 
-    return [
-        'wilayah_id' => $item->id,
-        'nama_wilayah' => $item->desa,
-        'jumlah_pernikahan_dini' => $pernikahanDini->count(),
-        'usia_terendah_suami' => $pernikahanDini->min('usia_suami') ?? '-',
-        'usia_terendah_istri' => $pernikahanDini->min('usia_istri') ?? '-',
-        'pendidikan_dominan_suami' => $pernikahanDini->groupBy('pendidikan_suami')->sortByDesc(fn($g) => $g->count())->keys()->first() ?? '-',
-        'pendidikan_dominan_istri' => $pernikahanDini->groupBy('pendidikan_istri')->sortByDesc(fn($g) => $g->count())->keys()->first() ?? '-',
-        'gender_dominan' => $genderDominan,
-    ];
+    $resiko = $item->resiko_wilayah->sortByDesc('periode')->first();
+
+return [
+    'wilayah_id' => $item->id,
+    'nama_wilayah' => $item->desa,
+    'jumlah_pernikahan_dini' => $pernikahanDini->count(),
+    'usia_terendah_suami' => $pernikahanDini->min('usia_suami') ?? '-',
+    'usia_terendah_istri' => $pernikahanDini->min('usia_istri') ?? '-',
+    'pendidikan_dominan_suami' => $pernikahanDini->groupBy('pendidikan_suami')->sortByDesc(fn($g) => $g->count())->keys()->first() ?? '-',
+    'pendidikan_dominan_istri' => $pernikahanDini->groupBy('pendidikan_istri')->sortByDesc(fn($g) => $g->count())->keys()->first() ?? '-',
+    'gender_dominan' => $genderDominan,
+    'rekomendasi_penyuluhan' => $resiko->rekomendasi_penyuluhan ?? '-',
+];
+
 })
 ->filter(fn($item) => $item['jumlah_pernikahan_dini'] > 0)
 ->sortByDesc('jumlah_pernikahan_dini')
@@ -821,8 +852,48 @@ public function rekomendasi(Request $request)
     ]);
 }
 
-public function detail_rekomendasi(){
-    
+public function detailRekomendasi(Request $request, $id){
+    $data = DataWilayah::findOrFail($id);
+
+    // Ambil resiko wilayah terbaru
+    $resiko_wilayah_terbaru = Resiko_Wilayah::where('id_wilayah', $id)
+        ->orderByDesc('periode')
+        ->first();
+
+    // Ambil data pernikahan dan filter berdasarkan tahun
+    $pernikahanQuery = $data->pernikahan()->orderBy('tanggal_akad', 'desc');
+
+    if ($request->filled('filter_tahun')) {
+        $tahun = $request->filter_tahun;
+        $pernikahanQuery->whereYear('tanggal_akad', $tahun);
+    } elseif ($resiko_wilayah_terbaru) {
+        $tahun = $resiko_wilayah_terbaru->periode;
+        $pernikahanQuery->whereYear('tanggal_akad', $tahun);
+    } else {
+        $tahun = null;
+    }
+
+    $pernikahan = $pernikahanQuery->get();
+
+    // Statistik
+    $totalPernikahan = $pernikahan->count();
+    $totalPernikahanDini = $pernikahan->where('kategori_pernikahan', 'Pernikahan Dini')->count();
+    $rataUsiaSuami = $totalPernikahan > 0 ? $pernikahan->avg('usia_suami') : 0;
+    $rataUsiaIstri = $totalPernikahan > 0 ? $pernikahan->avg('usia_istri') : 0;
+
+    // Ambil hasil klasifikasi
+    $idsPernikahan = $pernikahan->pluck('id');
+    $hasilKlasifikasi = HasilKlasifikasi::whereIn('id_pernikahan', $idsPernikahan)->get()->keyBy('id_pernikahan');
+
+    return view('dashboard.rekomendasi.detail_rekomendasi', compact(
+        'data',
+        'totalPernikahan',
+        'totalPernikahanDini',
+        'rataUsiaSuami',
+        'rataUsiaIstri',
+        'resiko_wilayah_terbaru',
+        'tahun'
+    ));
 }
 
 }
