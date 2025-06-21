@@ -53,7 +53,7 @@ class DataKlasifikasiController extends Controller
             $query->where('kategori_pernikahan', $request->hasil_klasifikasi);
         }
 
-        $data = $query->get();
+        $data = $query->orderBy('created_at', 'desc')->get();
 
         // Data untuk form dropdown
         $kelurahans = DataWilayah::select('desa')->distinct()->get();
@@ -66,9 +66,11 @@ class DataKlasifikasiController extends Controller
     public function detail($id)
 {
     $klasifikasi = HasilKlasifikasi::with([
-        'pernikahan:id,nama_suami,nama_istri,usia_suami,usia_istri,wilayah_id',
-        'pernikahan.wilayah:id,desa'
-    ])->find($id);
+        'pernikahan:id,nama_suami,nama_istri,usia_suami,usia_istri,pendidikan_suami,pendidikan_istri,pekerjaan_suami,pekerjaan_istri,status_suami,status_istri,wilayah_id',
+        'pernikahan.wilayah:id,desa',
+    ])->find($id, );
+
+
 
     return view('dashboard.data_klasifikasi.detail_klasifikasi', compact('klasifikasi'));
 }

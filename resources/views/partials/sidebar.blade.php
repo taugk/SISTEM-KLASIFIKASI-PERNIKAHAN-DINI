@@ -8,6 +8,8 @@
   $isDataWilayah = request()->is('data_wilayah*');
   $isLaporan = request()->is('laporan*');
   $isHasilKlasifikasi = request()->is('hasil_klasifikasi*');
+  $isRekomendasiPenyuluhan = request()->is('rekomendasi_penyuluhan*');
+  $isHasilClustering = request()->is('hasil_clustering*');
 @endphp
 
 <div class="sidebar" data-background-color="dark">
@@ -141,23 +143,35 @@
 
         {{-- Laporan --}}
         @if(in_array($userRole, ['admin', 'kepala kua']))
-          <li class="nav-item {{ $isLaporan ? 'active' : '' }}">
-            <a data-bs-toggle="collapse" href="#laporanMenu" aria-expanded="{{ $isLaporan ? 'true' : 'false' }}">
-              <i class="fas fa-file-alt"></i>
-              <p>Laporan</p>
-              <span class="caret"></span>
-            </a>
-            <div class="collapse {{ $isLaporan ? 'show' : '' }}" id="laporanMenu">
-              <ul class="nav nav-collapse">
-                <li class="{{ request()->is('laporan*') ? 'active' : '' }}">
-                  <a href="{{ route('laporan.statistik') }}">
-                    <span class="sub-item">Statistik Umum</span>
-                  </a>
-                </li>
-              </ul>
-            </div>
-          </li>
-        @endif
+  @php
+    $isLaporanParent = request()->is('laporan*');
+    $isStatistikActive = request()->is('laporan/statistik*');
+    $isLaporanAkhirActive = request()->is('laporan/laporan_akhir*');
+  @endphp
+
+  <li class="nav-item {{ $isLaporanParent ? 'active' : '' }}">
+    <a data-bs-toggle="collapse" href="#laporanMenu" aria-expanded="{{ $isLaporanParent ? 'true' : 'false' }}">
+      <i class="fas fa-file-alt"></i>
+      <p>Laporan</p>
+      <span class="caret"></span>
+    </a>
+    <div class="collapse {{ $isLaporanParent ? 'show' : '' }}" id="laporanMenu">
+      <ul class="nav nav-collapse">
+        <li class="{{ $isStatistikActive ? 'active' : '' }}">
+          <a href="{{ route('laporan.statistik') }}">
+            <span class="sub-item">Statistik Umum</span>
+          </a>
+        </li>
+        <li class="{{ $isLaporanAkhirActive ? 'active' : '' }}">
+          <a href="{{ route('laporan.laporan_akhir') }}">
+            <span class="sub-item">Laporan Akhir</span>
+          </a>
+        </li>
+      </ul>
+    </div>
+  </li>
+@endif
+
 
         {{-- Hasil Klasifikasi --}}
         <li class="nav-item {{ $isHasilKlasifikasi ? 'active' : '' }}">
@@ -188,9 +202,40 @@
                   <span class="sub-item">Peta Sebaran</span>
                 </a>
               </li>
+              <li class="{{ request()->is('hasil_klasifikasi/rekomendasi_penyuluhan') ? 'active' : '' }}">
+                <a href="{{ route('rekomendasi_penyuluhan.index') }}">
+                  <span class="sub-item">Rekomendasi Wilayah Penyuluhan</span>
+                </a>
+              </li>
+              <li class="{{ request()->is('hasil_klasifikasi/hasil_clustering') ? 'active' : '' }}">
+                <a href="{{ route('clustering.index') }}">
+                  <span class="sub-item">Hasil Clustering</span>
+                </a>
+              </li>
             </ul>
           </div>
         </li>
+
+        {{-- Rekomendasi Penyuluhan --}}
+        @if ($userRole == 'penyuluh')
+            <li class="nav-item {{ $isRekomendasiPenyuluhan ? 'active' : '' }}">
+          <a data-bs-toggle="collapse" href="#rekomendasiPenyuluhan" aria-expanded="{{ $isRekomendasiPenyuluhan ? 'true' : 'false' }}">
+            <i class="fas fa-bullhorn"></i>
+            <p>Rekomendasi Wilayah</p>
+            <span class="caret"></span>
+          </a>
+          <div class="collapse {{ $isRekomendasiPenyuluhan ? 'show' : '' }}" id="rekomendasiPenyuluhan">
+            <ul class="nav nav-collapse">
+              <li class="{{ request()->is('rekomendasi_penyuluhan') ? 'active' : '' }}">
+                <a href="{{ route('rekomendasi_penyuluhan.index') }}">
+                  <span class="sub-item">Rekomendasi Wilayah Penyuluhan</span>
+                </a>
+              </li>
+            </ul>
+          </div>
+        </li>
+        @endif
+
 
       </ul>
     </div>

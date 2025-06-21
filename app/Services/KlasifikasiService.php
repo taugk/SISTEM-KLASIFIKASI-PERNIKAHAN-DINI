@@ -18,7 +18,6 @@ class KlasifikasiService
         if (empty($dataInput['wilayah_id'])) {
             throw new \InvalidArgumentException('Wilayah ID tidak boleh kosong.');
         }
-
         DB::beginTransaction();
         try {
             $wilayah = DataWilayah::find($dataInput['wilayah_id']);
@@ -48,18 +47,26 @@ class KlasifikasiService
 
 
             // Cek key hasil API
-            if (!isset($hasil['hasil_prediksi'], $hasil['confidence'], $hasil['probabilitas'])) {
+            if (!isset($hasil['hasil_prediksi'], $hasil['confidence'], $hasil['probabilitas'], $hasil['penyebab'], $hasil['accuracy'], $hasil['dampak'])) {
                 throw new \Exception('Response API tidak lengkap.');
             }
 
-
+            if($hasil['hasil_prediksi'] === 1) {
+                $hasil['hasil_prediksi'] = 'Pernikahan Dini';
+            } elseif ($hasil['hasil_prediksi'] === 0) {
+                $hasil['hasil_prediksi'] = 'Bukan Pernikahan Dini';
+            } else {
+                throw new \Exception('Hasil prediksi tidak valid.');
+            }
 
             HasilKlasifikasi::updateOrCreate([
                 'id_pernikahan' => $idPernikahan,
                 'kategori_pernikahan' => $hasil['hasil_prediksi'],
                 'confidence' => floatval(preg_replace('/[^0-9.]/', '', $hasil['confidence'])),
                 'probabilitas' => json_encode($hasil['probabilitas']),
-
+                'akurasi' => is_numeric($hasil['accuracy'] ?? null) ? floatval($hasil['accuracy']) : null,
+                'penyebab' => json_encode($hasil['penyebab']),
+                'dampak' => json_encode($hasil['dampak'] ?? []),
             ]);
 
             // Ambil tanggal max akad pernikahan
@@ -87,11 +94,17 @@ class KlasifikasiService
                 ? ($jumlahPernikahanDini / $jumlahPernikahan) * 100
                 : 0;
 
-            $resiko = match (true) {
-                $persentase <= 20 => 'rendah',
-                $persentase <= 40 => 'sedang',
-                default => 'tinggi',
-            };
+                $rasio_pernikahan_dini = $jumlahPernikahan > 0
+                ? ($jumlahPernikahanDini / $jumlahPernikahan) * 100
+                : 0;
+            // Tentukan kategori risiko berdasarkan persentase
+            if ($rasio_pernikahan_dini < 20) {
+                $resiko = 'rendah';
+            } elseif ($rasio_pernikahan_dini < 40) {
+                $resiko = 'sedang';
+            } else {
+                $resiko = 'tinggi';
+            }
 
             Resiko_Wilayah::updateOrCreate(
                 ['id_wilayah' => $idWilayah, 'periode' => $periode],
@@ -115,121 +128,143 @@ class KlasifikasiService
     }
 
     public function prosesDanSimpanBatch(array $dataBatch): void
-    {
-        DB::beginTransaction();
-        try {
-            $payload = [];
-            $mapping = [];
+{
+    DB::beginTransaction();
 
-            foreach ($dataBatch as $item) {
-                if (empty($item['wilayah_id']) || empty($item['id'])) {
-                    throw new \InvalidArgumentException("Data batch tidak lengkap. ID/Wilayah kosong.");
-                }
+    try {
+        $payload = [];
+        $mapping = [];
 
-                $wilayah = DataWilayah::find($item['wilayah_id']);
-                if (!$wilayah) {
-                    throw new \Exception("Wilayah ID {$item['wilayah_id']} tidak ditemukan.");
-                }
-
-                $payload[] = [
-                    'umur_suami' => $item['usia_suami'],
-                    'umur_istri' => $item['usia_istri'],
-                    'pendidikan_suami' => $item['pendidikan_suami'],
-                    'pendidikan_istri' => $item['pendidikan_istri'],
-                    'pekerjaan_suami' => $item['pekerjaan_suami'],
-                    'pekerjaan_istri' => $item['pekerjaan_istri'],
-                    'status_suami' => $item['status_suami'],
-                    'status_istri' => $item['status_istri'],
-                    'nama_kelurahan' => $wilayah->desa,
-                ];
-
-                $mapping[] = [
-                    'id_pernikahan' => $item['id'],
-                    'wilayah_id' => $item['wilayah_id'],
-                ];
+        foreach ($dataBatch as $item) {
+            if (empty($item['wilayah_id']) || empty($item['id'])) {
+                throw new \InvalidArgumentException("Data batch tidak lengkap. 'wilayah_id' atau 'id' kosong.");
             }
 
-
-            $response = Http::timeout(120)->post('http://127.0.0.1:5000/predict-batch', [
-                'data' => $payload
-            ]);
-
-            if (!$response->successful()) {
-                throw new \Exception("Gagal menghubungi API klasifikasi batch. Status: " . $response->status());
+            $wilayah = DataWilayah::find($item['wilayah_id']);
+            if (!$wilayah) {
+                throw new \Exception("Wilayah dengan ID {$item['wilayah_id']} tidak ditemukan.");
             }
 
-            $hasilBatch = $response->json();
-
-            if (!isset($hasilBatch['results']) || !is_array($hasilBatch['results'])) {
-                throw new \Exception("Format respons API tidak sesuai. 'results' tidak ditemukan.");
-            }
-
-            if (count($hasilBatch['results']) !== count($mapping)) {
-                throw new \Exception("Jumlah hasil klasifikasi (" . count($hasilBatch['results']) . ") tidak sesuai dengan jumlah input (" . count($mapping) . ").");
-            }
-
-            foreach ($hasilBatch['results'] as $i => $hasil) {
-    $confidence = isset($hasil['confidence'])
-        ? floatval(preg_replace('/[^0-9.]/', '', $hasil['confidence']))
-        : 0.0;
+            $payload[] = [
+                'umur_suami' => $item['usia_suami'],
+                'umur_istri' => $item['usia_istri'],
+                'pendidikan_suami' => $item['pendidikan_suami'],
+                'pendidikan_istri' => $item['pendidikan_istri'],
+                'status_suami' => $item['status_suami'],
+                'status_istri' => $item['status_istri'],
+                'nama_kelurahan' => $wilayah->desa,
+                'pekerjaan_suami' => $item['pekerjaan_suami'],
+                'pekerjaan_istri' => $item['pekerjaan_istri'],
+            ];
 
 
-    HasilKlasifikasi::updateOrCreate(
-        ['id_pernikahan' => $mapping[$i]['id_pernikahan']],
-        [
-            'kategori_pernikahan' => $hasil['hasil_prediksi'] ?? '-',
-            'confidence' => $confidence,
-            'probabilitas' => json_encode($hasil['probabilitas'] ?? []),
-        ]
-    );
-}
-
-
-            // Hitung risiko wilayah
-            $kelompokWilayah = collect($mapping)->groupBy('wilayah_id');
-            $tahun = date('Y', strtotime(DataPernikahan::max('tanggal_akad')));
-            $periode = "{$tahun}-01-01";
-
-            foreach ($kelompokWilayah as $idWilayah => $items) {
-                $jumlahPernikahan = DataPernikahan::where('wilayah_id', $idWilayah)
-                    ->whereYear('tanggal_akad', $tahun)
-                    ->count();
-
-                $jumlahPernikahanDini = HasilKlasifikasi::whereHas('pernikahan', function ($query) use ($idWilayah, $tahun) {
-                    $query->where('wilayah_id', $idWilayah)
-                        ->whereYear('tanggal_akad', $tahun);
-                })->where('kategori_pernikahan', 'Pernikahan Dini')->count();
-
-                $persentase = $jumlahPernikahan > 0
-                    ? ($jumlahPernikahanDini / $jumlahPernikahan) * 100
-                    : 0;
-
-                $resiko = match (true) {
-                    $persentase <= 20 => 'rendah',
-                    $persentase <= 40 => 'sedang',
-                    default => 'tinggi',
-                };
-
-                Resiko_Wilayah::updateOrCreate(
-                    ['id_wilayah' => $idWilayah, 'periode' => $periode],
-                    [
-                        'jumlah_pernikahan' => $jumlahPernikahan,
-                        'jumlah_pernikahan_dini' => $jumlahPernikahanDini,
-                        'resiko_wilayah' => $resiko,
-                    ]
-                );
-            }
-
-            Log::info("Seluruh data batch berhasil diproses dan disimpan.");
-            DB::commit();
-        } catch (\Throwable $e) {
-            DB::rollBack();
-            Log::error("Error saat memproses data batch:", [
-                'message' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-            ]);
-            throw $e;
+            $mapping[] = [
+                'id_pernikahan' => $item['id'],
+                'wilayah_id' => $item['wilayah_id'],
+            ];
         }
+
+        $response = Http::timeout(120)->post('http://127.0.0.1:5000/predict-batch', [
+            'data' => $payload
+        ]);
+
+        if (!$response->successful()) {
+            throw new \Exception("Gagal menghubungi API klasifikasi batch. Status HTTP: " . $response->status());
+
+        }
+
+        $hasilBatch = $response->json();
+
+        if (!isset($hasilBatch['results']) || !is_array($hasilBatch['results'])) {
+            throw new \Exception("Respons API tidak valid. Key 'results' tidak ditemukan atau bukan array.");
+        }
+
+        if (count($hasilBatch['results']) !== count($mapping)) {
+            throw new \Exception("Jumlah hasil klasifikasi (" . count($hasilBatch['results']) . ") tidak sesuai dengan jumlah input (" . count($mapping) . ").");
+        }
+
+        foreach ($hasilBatch['results'] as $i => $hasil) {
+            $prediksi = $hasil['hasil_prediksi'] ?? '-';
+            if ($prediksi === 1) {
+                $prediksi = 'Pernikahan Dini';
+            } elseif ($prediksi === 0) {
+                $prediksi = 'Bukan Pernikahan Dini';
+            }
+
+            $confidence = isset($hasil['confidence'])
+                ? floatval(preg_replace('/[^0-9.]/', '', $hasil['confidence']))
+                : 0.0;
+
+            HasilKlasifikasi::updateOrCreate(
+                ['id_pernikahan' => $mapping[$i]['id_pernikahan']],
+                [
+                    'kategori_pernikahan' => $prediksi,
+                    'confidence' => $confidence,
+                    'probabilitas' => json_encode($hasil['probabilitas'] ?? []),
+                    'akurasi' => is_numeric($hasil['accuracy'] ?? null) ? floatval($hasil['accuracy']) : null,
+                    'penyebab' => json_encode($hasil['penyebab'] ?? null),
+                    'dampak' => json_encode($hasil['dampak'] ?? null),
+                ]
+            );
+        }
+
+        // Perhitungan risiko wilayah
+        $kelompokWilayah = collect($mapping)->groupBy('wilayah_id');
+        $tanggalMax = DataPernikahan::max('tanggal_akad');
+
+        if (!$tanggalMax) {
+            throw new \Exception('Data pernikahan tidak ditemukan untuk menentukan periode.');
+        }
+
+        $tahun = date('Y', strtotime($tanggalMax));
+        $periode = "{$tahun}-01-01";
+
+        foreach ($kelompokWilayah as $idWilayah => $items) {
+            $jumlahPernikahan = DataPernikahan::where('wilayah_id', $idWilayah)
+                ->whereYear('tanggal_akad', $tahun)
+                ->count();
+
+            $jumlahPernikahanDini = HasilKlasifikasi::whereHas('pernikahan', function ($query) use ($idWilayah, $tahun) {
+                $query->where('wilayah_id', $idWilayah)
+                    ->whereYear('tanggal_akad', $tahun);
+            })->where('kategori_pernikahan', 'Pernikahan Dini')->count();
+
+            $persentase = $jumlahPernikahan > 0
+                ? ($jumlahPernikahanDini / $jumlahPernikahan) * 100
+                : 0;
+
+                $rasio_pernikahan_dini = $jumlahPernikahan > 0
+                ? ($jumlahPernikahanDini / $jumlahPernikahan) * 100
+                : 0;
+
+                if ($rasio_pernikahan_dini < 20) {
+                    $resiko = 'rendah';
+                } elseif ($rasio_pernikahan_dini < 40) {
+                    $resiko = 'sedang';
+                } else {
+                    $resiko = 'tinggi';
+                }
+
+            Resiko_Wilayah::updateOrCreate(
+                ['id_wilayah' => $idWilayah, 'periode' => $periode],
+                [
+                    'jumlah_pernikahan' => $jumlahPernikahan,
+                    'jumlah_pernikahan_dini' => $jumlahPernikahanDini,
+                    'resiko_wilayah' => $resiko,
+                ]
+            );
+        }
+
+        Log::info("Batch klasifikasi berhasil diproses untuk " . count($dataBatch) . " entri.");
+        DB::commit();
+    } catch (\Throwable $e) {
+        DB::rollBack();
+        Log::error("Terjadi kesalahan saat proses batch klasifikasi:", [
+            'message' => $e->getMessage(),
+            'trace' => $e->getTraceAsString(),
+        ]);
+        throw $e;
     }
+}
 
 }

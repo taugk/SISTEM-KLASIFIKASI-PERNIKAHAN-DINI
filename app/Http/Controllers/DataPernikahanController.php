@@ -5,17 +5,18 @@ namespace App\Http\Controllers;
 
 
 use App\Models\DataWilayah;
-use App\Models\Resiko_Wilayah;
 use Illuminate\Http\Request;
 use App\Models\DataPernikahan;
+use App\Models\Resiko_Wilayah;
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Models\HasilKlasifikasi;
 use App\Http\Controllers\Controller;
+use App\Services\KlasifikasiService;
 use Illuminate\Support\Facades\Http;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\DataPernikahanExport;
 use App\Imports\DataPernikahanImport;
-use App\Services\KlasifikasiService;
+use Illuminate\Support\Facades\Validator;
 use PhpOffice\PhpSpreadsheet\Calculation\MathTrig\Sum;
 use Symfony\Component\HttpKernel\DependencyInjection\LazyLoadingFragmentHandler;
 
@@ -92,6 +93,7 @@ class DataPernikahanController extends Controller
             'tanggal_akad' => 'required|date',
         ]);
 
+
         $pernikahan = DataPernikahan::create($validateData);
 
         $klasifikasiService->prosesDanSimpan($validateData, $pernikahan->id);
@@ -111,60 +113,74 @@ class DataPernikahanController extends Controller
 
 public function edit($id){
     $data = DataPernikahan::find($id);
-    return view('dashboard.data_pernikahan.edit_data', compact('data'));
+    $kelurahan = DataWilayah::all();
+    return view('dashboard.data_pernikahan.edit_data', [
+        'data' => $data,
+        'kelurahan' => $kelurahan,
+    ]);
 }
 
-public function update(Request $request, $id){
-    $validated = $request->validate([
+public function update(Request $request, $id, KlasifikasiService $klasifikasiService)
+{
+    $validator = Validator::make($request->all(), [
         'nama_suami' => 'required',
         'nama_istri' => 'required',
         'tanggal_lahir_suami' => 'required|date',
         'tanggal_lahir_istri' => 'required|date',
-        'usia_suami' => 'required|integer|min:0',
-        'usia_istri' => 'required|integer|min:0',
+        'usia_suami' => 'required|integer|min:15',
+        'usia_istri' => 'required|integer|min:15',
         'pendidikan_suami' => 'required',
         'pendidikan_istri' => 'required',
         'pekerjaan_suami' => 'required',
         'pekerjaan_istri' => 'required',
         'status_suami' => 'required',
         'status_istri' => 'required',
-        'nama_kelurahan' => 'required',
+        'wilayah_id' => 'required|exists:data_wilayah,id',
         'tanggal_akad' => 'required|date',
     ]);
 
+    $validator->sometimes('pekerjaan_suami_lainnya', 'required|string|max:255', function ($input) {
+        return $input->pekerjaan_suami === 'LAINNYA';
+    });
 
-    $kelurahan = DataWilayah::where('desa', $validated['nama_kelurahan'])->first();
+    $validator->sometimes('pekerjaan_istri_lainnya', 'required|string|max:255', function ($input) {
+        return $input->pekerjaan_istri === 'LAINNYA';
+    });
 
+    $validated = $validator->validate();
+
+
+    // Validasi kelurahan (asumsi wilayah_id = desa)
+    $kelurahan = DataWilayah::where('id', $validated['wilayah_id'])->first();
+    if (!$kelurahan) {
+        return back()->withErrors(['wilayah_id' => 'Kelurahan tidak ditemukan.'])->withInput();
+    }
+
+
+
+
+    // Jika kolom di tabel `data_pernikahan` masih `nama_kelurahan`, lakukan mapping
+    // $validated['nama_kelurahan'] = $validated['wilayah_id'];
+    // unset($validated['wilayah_id']);
+
+    // Normalisasi pekerjaan
+    if ($validated['pekerjaan_suami'] === 'LAINNYA') {
+        $validated['pekerjaan_suami'] = $validated['pekerjaan_suami_lainnya'];
+    }
+    if ($validated['pekerjaan_istri'] === 'LAINNYA') {
+        $validated['pekerjaan_istri'] = $validated['pekerjaan_istri_lainnya'];
+    }
 
     $data = DataPernikahan::findOrFail($id);
     $data->update($validated);
 
-    $dataTrain = [
-        'umur_suami' => $validated['usia_suami'],
-        'umur_istri' => $validated['usia_istri'],
-        'pendidikan_suami' => $validated['pendidikan_suami'],
-        'pendidikan_istri' => $validated['pendidikan_istri'],
-        'pekerjaan_suami' => $validated['pekerjaan_suami'],
-        'pekerjaan_istri' => $validated['pekerjaan_istri'],
-        'status_suami' => $validated['status_suami'],
-        'status_istri' => $validated['status_istri'],
-        'nama_kelurahan' => $kelurahan->desa,
-    ];
-
-    // Klasifikasi
-    $klasifikasi = Http::post('http://127.0.0.1:5000/predict', $dataTrain);
-    $hasil_klasifikasi = $klasifikasi->json();
-
-    $klasifikasi = HasilKlasifikasi::where('id_pernikahan', $id)->update([
-        'id_pernikahan' => $id,
-        'kategori_pernikahan' => $hasil_klasifikasi['hasil_prediksi'],
-        'confidence' => floatval(preg_replace('/[^0-9.]/', '', $hasil_klasifikasi['confidence'])),
-        'probabilitas' => json_encode($hasil_klasifikasi['probabilitas']),
-    ]);
+    $klasifikasiService->prosesDanSimpan($validated, $id);
 
     return redirect()->route('data_pernikahan.index')
                      ->with('success', 'Data Pernikahan Berhasil Diubah');
 }
+
+
 
 public function delete($id){
     $data = DataPernikahan::find($id);

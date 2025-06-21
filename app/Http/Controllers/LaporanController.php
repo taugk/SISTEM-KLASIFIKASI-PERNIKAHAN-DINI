@@ -7,11 +7,193 @@ use Illuminate\Http\Request;
 use App\Models\DataPernikahan;
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Models\HasilKlasifikasi;
+use App\Models\Resiko_Wilayah;
 use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Facades\Excel;
 
 class LaporanController extends Controller
 {
+    public function laporanAkhir(Request $request)
+{
+    $tahun = $request->input('tahun');
+    $kategori = $request->input('kategori_wilayah');
+
+    // Ambil tahun unik dari kolom 'periode'
+    $daftarTahun = Resiko_Wilayah::selectRaw('DISTINCT YEAR(periode) as tahun')->orderBy('tahun', 'desc')->pluck('tahun');
+
+    // Query data resiko wilayah beserta relasi wilayah dan pernikahan, filter pernikahan berdasarkan tahun
+    $query = Resiko_Wilayah::with(['wilayah.pernikahan' => function ($q) use ($tahun) {
+        if ($tahun) {
+            $q->whereYear('tanggal_akad', $tahun);
+        }
+    }]);
+
+    // Filter berdasarkan tahun (periode)
+    if ($tahun) {
+        $query->whereYear('periode', $tahun);
+    }
+
+    // Filter berdasarkan kategori wilayah (resiko)
+    if ($kategori) {
+        $query->where('resiko_wilayah', $kategori);
+    }
+
+    $data = $query->get();
+
+    // Rekapitulasi data per wilayah
+    $rekap = $data->map(function ($item) {
+        $wilayah = $item->wilayah;
+
+        // Ambil pernikahan di wilayah tersebut (sudah terfilter berdasarkan tahun di eager load)
+        $pelakuDini = $wilayah->pernikahan->filter(function ($p) {
+            return ($p->usia_suami < 20 || $p->usia_istri < 20);
+        });
+
+        $jumlahDini = $pelakuDini->count();
+        $rata_usia_suami = $pelakuDini->avg('usia_suami') ?: 0;
+        $rata_usia_istri = $pelakuDini->avg('usia_istri') ?: 0;
+
+        // Ambil pendidikan terbanyak (modus)
+        $rata_pendidikan_suami = $this->getMostFrequent($pelakuDini->pluck('pendidikan_suami')->toArray());
+        $rata_pendidikan_istri = $this->getMostFrequent($pelakuDini->pluck('pendidikan_istri')->toArray());
+
+        // Normalisasi untuk pengecekan pendidikan rendah
+        $pendidikan_suami = strtolower(trim($rata_pendidikan_suami));
+        $pendidikan_istri = strtolower(trim($rata_pendidikan_istri));
+
+        $pendidikan_rendah = [
+            'TIDAK/BELUM SEKOLAH',
+            'TIDAK TAMAT/BELUM SEKOLAH',
+            'TIDAK TAMAT SD/SEDERAJAT',
+            'SD/SEDERAJAT',
+            'SLTP/SEDERAJAT',
+        ];
+
+
+        // Logika rekomendasi
+        $rekomendasi = '-';
+
+        if (
+            ($rata_usia_suami <= 19 || $rata_usia_istri < 19) ||
+            in_array($pendidikan_suami, $pendidikan_rendah) ||
+            in_array($pendidikan_istri, $pendidikan_rendah)
+        ) {
+            $rekomendasi = 'Penyuluhan intensif dan kunjungan langsung';
+        } elseif ($jumlahDini > 10) {
+            $rekomendasi = 'Penyuluhan intensif dan kunjungan langsung';
+        } elseif ($jumlahDini > 2) {
+            $rekomendasi = 'Penyuluhan berkala melalui posyandu & sekolah';
+        } else {
+            $rekomendasi = 'Monitoring rutin dan penyuluhan ringan';
+        }
+
+        return [
+            'wilayah' => ucwords(strtolower($wilayah->desa)),
+            'resiko' => ucfirst($item->resiko_wilayah),
+            'jumlah_pernikahan_dini' => $jumlahDini,
+            'rata_usia_suami' => $rata_usia_suami ? number_format($rata_usia_suami, 1) : '-',
+            'rata_usia_istri' => $rata_usia_istri ? number_format($rata_usia_istri, 1) : '-',
+            'rata_pendidikan_suami' => ucwords(strtolower($rata_pendidikan_suami)?: '-'),
+            'rata_pendidikan_istri' => ucwords(strtolower($rata_pendidikan_istri) ?: '-'),
+        'rata_pekerjaan_suami' => ucwords(strtolower($pelakuDini->pluck('pekerjaan_suami')->unique()->implode(', ') ?: '-')),
+            'rata_pekerjaan_istri' => ucwords(strtolower($pelakuDini->pluck('pekerjaan_istri')->unique()->implode(', ') ?: '-')),
+            'rekomendasi' => $rekomendasi,
+        ];
+    });
+
+    return view('dashboard.laporan.laporan_akhir', compact(
+        'rekap', 'daftarTahun', 'tahun', 'kategori'
+    ));
+}
+
+
+    public function laporanAkhirPdf(Request $request)
+    {
+        $tahun = $request->input('tahun');
+        $kategori = $request->input('kategori_wilayah');
+
+        // Ambil data laporan akhir
+        $rekap = Resiko_Wilayah::with(['wilayah.pernikahan'])
+            ->when($tahun, fn($q) => $q->where('periode', $tahun))
+            ->when($kategori, fn($q) => $q->where('resiko_wilayah', $kategori))
+            ->get()
+            ->map(function ($item) {
+                $wilayah = $item->wilayah;
+
+                // Filter pelaku pernikahan dini (usia suami atau istri < 20)
+                $pelakuDini = $wilayah->pernikahan->filter(function ($p) {
+                    return ($p->usia_suami < 20 || $p->usia_istri < 20);
+                });
+
+                $jumlahDini = $pelakuDini->count();
+                $rata_usia_suami = $pelakuDini->avg('usia_suami') ?: 0;
+                $rata_usia_istri = $pelakuDini->avg('usia_istri') ?: 0;
+
+                // Fungsi bantu cari pendidikan terbanyak (modus)
+                $rata_pendidikan_suami = $this->getMostFrequent($pelakuDini->pluck('pendidikan_suami')->toArray());
+                $rata_pendidikan_istri = $this->getMostFrequent($pelakuDini->pluck('pendidikan_istri')->toArray());
+
+                // Normalisasi string pendidikan (huruf kecil tanpa spasi)
+                $pendidikan_suami = strtolower(trim($rata_pendidikan_suami));
+                $pendidikan_istri = strtolower(trim($rata_pendidikan_istri));
+
+                // Logika rekomendasi dinamis dengan prioritas tinggi jika usia <18 atau pendidikan rendah
+                $pendidikan_rendah = [
+                    'TIDAK/BELUM SEKOLAH',
+                    'TIDAK TAMAT/BELUM SEKOLAH',
+                    'TIDAK TAMAT SD/SEDERAJAT',
+                    'SD/SEDERAJAT',
+                    'SLTP/SEDERAJAT',
+                ];
+
+
+                if (
+                    ($rata_usia_suami <= 19 || $rata_usia_istri < 19) ||
+                    in_array($pendidikan_suami, $pendidikan_rendah) ||
+                    in_array($pendidikan_istri, $pendidikan_rendah)
+                ) {
+                    $rekomendasi = 'Penyuluhan intensif dan kunjungan langsung';
+                } elseif ($jumlahDini > 10) {
+                    $rekomendasi = 'Penyuluhan intensif dan kunjungan langsung';
+                } elseif ($jumlahDini > 2) {
+                    $rekomendasi = 'Penyuluhan berkala melalui posyandu & sekolah';
+                } else {
+                    $rekomendasi = 'Monitoring rutin dan penyuluhan ringan';
+                }
+                return [
+                    'wilayah' => $wilayah->desa,
+                    'resiko' => ucfirst($item->resiko_wilayah),
+                    'jumlah_pernikahan_dini' => $jumlahDini,
+                    'rata_usia_suami' => $rata_usia_suami ? number_format($rata_usia_suami, 1) : '-',
+                    'rata_usia_istri' => $rata_usia_istri ? number_format($rata_usia_istri, 1) : '-',
+                    'rata_pendidikan_suami' => $rata_pendidikan_suami ?: '-',
+                    'rata_pendidikan_istri' => $rata_pendidikan_istri ?: '-',
+                    'rekomendasi' => $rekomendasi,
+                ];
+            });
+        $pdf = Pdf::loadView('components.laporan_akhir_pdf', [
+            'rekap' => $rekap,
+            'tahun' => $tahun,
+            'kategori' => $kategori,
+        ]);
+        $pdf->setPaper('A4', 'landscape');
+        $filename = 'laporan_akhir_' . now()->format('Ymd_His') . '.pdf';
+        return $pdf->stream($filename, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="' . $filename . '"',
+        ]);
+    }
+
+    // Fungsi bantu cari modus (nilai paling sering muncul)
+    private function getMostFrequent(array $array)
+    {
+        if (empty($array)) {
+            return null;
+        }
+        $values = array_count_values($array);
+        arsort($values);
+        return key($values);
+    }
 
     public function statistik(Request $request)
 {
@@ -215,19 +397,15 @@ public function exportPdf(Request $request)
         'wilayah as jumlah_pernikahan' => fn($q) =>
             $q->select(DB::raw('count(*)'))
     ])
-    ->with([
-        'resiko_wilayah' => function ($query) use ($tahun, $kategori) {
-            if ($tahun) {
-                $query->where('periode', 'like', "$tahun%");
-            }
-            if ($kategori) {
-                $query->where('resiko_wilayah', $kategori);
-            }
-            $query->select('id_wilayah', 'resiko_wilayah', 'jumlah_pernikahan_dini', 'periode');
-        }
-    ])
+    ->with('resiko_wilayah')
     ->get();
 
+    // Get nama wilayah for display
+    $nama_wilayah = null;
+    if ($wilayah_id) {
+        $wilayah = DataWilayah::find($wilayah_id);
+        $nama_wilayah = $wilayah ? $wilayah->desa . ', ' . $wilayah->kecamatan : null;
+    }
 
     // Ambil data hasil klasifikasi + filter wilayah dan kategori
     $pernikahan = HasilKlasifikasi::with(['pernikahan.wilayah.resiko_wilayah'])
@@ -288,15 +466,6 @@ public function exportPdf(Request $request)
         })
         ->values();
 
-        $nama_wilayah = 'Semua Wilayah';
-        if ($wilayah_id) {
-            $wilayah = DataWilayah::find($wilayah_id);
-            $nama_wilayah = $wilayah ? $wilayah->desa : 'Wilayah tidak ditemukan';
-        }
-
-        
-
-
     $pdf = PDF::loadView('components.laporan_statistik_pdf', compact(
         'statistikWilayah',
         'statistikKategori',
@@ -313,7 +482,8 @@ public function exportPdf(Request $request)
     $pdf->setPaper('A4', 'landscape');
     $filename = 'laporan_statistik_' . now()->format('Ymd_His') . '.pdf';
 
-    return $pdf->download($filename);
+    // Stream the PDF for preview instead of downloading
+    return $pdf->stream($filename);
 }
 
 

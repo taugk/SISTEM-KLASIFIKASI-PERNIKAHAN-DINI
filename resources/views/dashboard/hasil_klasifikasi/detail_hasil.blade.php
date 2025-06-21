@@ -40,7 +40,7 @@
                 <li class="list-group-item d-flex justify-content-between align-items-center">
                     <span>Tingkat Risiko Wilayah</span>
                     @php
-                        $risk = optional($data->resiko_wilayah->first())->resiko_wilayah ?? '-';
+                        $risk = optional($resiko_wilayah_terbaru)->resiko_wilayah ?? '-';
                         $badgeClass = match(strtolower($risk)) {
                             'tinggi' => 'badge bg-danger',
                             'sedang' => 'badge bg-warning text-dark',
@@ -57,11 +57,17 @@
             <ul class="list-group mb-4">
                 <li class="list-group-item d-flex justify-content-between">
                     <span>Jumlah Kasus Pernikahan Dini</span>
-                    <strong>{{ optional($data->resiko_wilayah->first())->jumlah_pernikahan_dini ?? '-' }}</strong>
+                    <strong>{{ optional($resiko_wilayah_terbaru)->jumlah_pernikahan_dini ?? '-' }}</strong>
                 </li>
                 <li class="list-group-item d-flex justify-content-between">
                     <span>Periode Data</span>
-                    <strong>{{ optional($data->resiko_wilayah->first())->periode ?? '-' }}</strong>
+                    <strong>
+                        @if(optional($resiko_wilayah_terbaru)->periode)
+                            {{ \Carbon\Carbon::parse($resiko_wilayah_terbaru->periode)->format('Y') }}
+                        @else
+                            -
+                        @endif
+                    </strong>
                 </li>
             </ul>
 
@@ -70,7 +76,7 @@
             <ul class="list-group mb-4">
                 <li class="list-group-item d-flex justify-content-between">
                     <span>Jumlah Pernikahan</span>
-                    <strong>{{ optional($data->resiko_wilayah->first())->jumlah_pernikahan ?? '-' }}</strong>
+                    <strong>{{ optional($resiko_wilayah_terbaru)->jumlah_pernikahan ?? '-' }}</strong>
                 </li>
             </ul>
 
@@ -87,6 +93,32 @@
                 </li>
             </ul>
 
+            <h5 class="mb-3">Penyebab Pernikahan Dini Terbanyak</h5>
+                <ul class="list-group mb-4">
+                    @forelse($penyebab_terbanyak as $penyebab => $jumlah)
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            {{ $penyebab }}
+                            <span class="badge bg-primary rounded-pill">{{ $jumlah }}</span>
+                        </li>
+                    @empty
+                        <li class="list-group-item">Tidak ada data penyebab tersedia.</li>
+                    @endforelse
+                </ul>
+
+                <h5 class="mb-3">Rekomendasi Penyuluhan</h5>
+                <ul class="list-group mb-4">
+                    @forelse($rekomendasi as $rk)
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            {{ $rk }}
+                            <span class="badge bg-info rounded-pill">Penyuluhan</span>
+                        </li>
+                    @empty
+                        <li class="list-group-item">Tidak ada rekomendasi penyuluhan tersedia.</li>
+                    @endforelse
+            </ul>
+
+
+
             <!-- Tombol Aksi -->
             <div class="d-flex justify-content-start">
                 <a href="{{ route('hasil_klasifikasi.index') }}" class="btn btn-outline-secondary">
@@ -95,5 +127,6 @@
             </div>
         </div>
     </div>
+</div>
 
 @endsection

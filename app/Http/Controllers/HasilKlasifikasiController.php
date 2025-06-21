@@ -15,112 +15,138 @@ use App\Http\Controllers\Controller;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\HasilKlasifikasiExport;
 use App\Helpers\NotificationHelper;
+use Log;
 
 class HasilKlasifikasiController extends Controller
 {
+    public function map(Request $request){
+    try {
+        // Base query
+        $query = Resiko_Wilayah::with(['wilayah' => function($q) {
+            $q->select('id', 'desa', 'kecamatan', 'kabupaten', 'provinsi');
+        }])
+        ->select('id', 'id_wilayah', 'resiko_wilayah', 'jumlah_pernikahan_dini', 'periode', 'created_at');
 
-    public function map(Request $request)
-    {
-        try {
-            // Base query
-            $query = Resiko_Wilayah::with(['wilayah' => function($q) {
-                $q->select('id', 'desa', 'kecamatan', 'kabupaten', 'provinsi');
-            }])
-            ->select('id', 'id_wilayah', 'resiko_wilayah', 'jumlah_pernikahan_dini', 'created_at');
-
-            // Apply filters
-            if ($request->filled('filter_provinsi')) {
-                $query->whereHas('wilayah', function($q) use ($request) {
-                    $q->where('provinsi', strtoupper($request->filter_provinsi));
-                });
-            }
-
-            if ($request->filled('filter_kabupaten')) {
-                $query->whereHas('wilayah', function($q) use ($request) {
-                    $q->where('kabupaten', strtoupper($request->filter_kabupaten));
-                });
-            }
-
-            if ($request->filled('filter_kecamatan')) {
-                $query->whereHas('wilayah', function($q) use ($request) {
-                    $q->where('kecamatan', strtoupper($request->filter_kecamatan));
-                });
-            }
-
-            if ($request->filled('filter_resiko')) {
-                $query->where('resiko_wilayah', $request->filter_resiko);
-            }
-
-            // Get the latest risk assessment for each wilayah
-            $resikoData = $query->orderBy('created_at', 'desc')
-                          ->get()
-                          ->unique('id_wilayah')
-                          ->keyBy(function ($item) {
-                              return strtolower($item->wilayah->desa ?? '');
-                          });
-
-            // Read GeoJSON file
-            $geojsonPath = public_path('geojson/map.geojson');
-            if (!file_exists($geojsonPath)) {
-                \Log::error('GeoJSON file not found at: ' . $geojsonPath);
-                return response()->view('errors.custom', [
-                    'message' => 'File GeoJSON tidak ditemukan'
-                ], 404);
-            }
-
-            $geojsonContent = file_get_contents($geojsonPath);
-            if (empty($geojsonContent)) {
-                \Log::error('GeoJSON file is empty');
-                return response()->view('errors.custom', [
-                    'message' => 'File GeoJSON kosong'
-                ], 404);
-            }
-
-            // Decode GeoJSON
-            $geojson = json_decode($geojsonContent, true);
-
-            // Add risk data to GeoJSON properties
-            foreach ($geojson['features'] as &$feature) {
-                $desaName = strtolower($feature['properties']['NAMOBJ'] ?? '');
-                if (isset($resikoData[$desaName])) {
-                    $resikoWilayah = $resikoData[$desaName];
-                    $feature['properties']['resiko_wilayah'] = $resikoWilayah->resiko_wilayah;
-                    $feature['properties']['jumlah_pernikahan_dini'] = $resikoWilayah->jumlah_pernikahan_dini;
-                } else {
-                    $feature['properties']['resiko_wilayah'] = 'tidak tersedia';
-                    $feature['properties']['jumlah_pernikahan_dini'] = 0;
-                }
-            }
-
-            // Get filter options
-            $provinsis = DataWilayah::select('provinsi')->distinct()->pluck('provinsi');
-            $kabupatens = DataWilayah::select('kabupaten')->distinct()->pluck('kabupaten');
-            $kecamatans = DataWilayah::select('kecamatan')->distinct()->pluck('kecamatan');
-            $resikoOptions = Resiko_Wilayah::select('resiko_wilayah')->distinct()->pluck('resiko_wilayah');
-
-            return view('dashboard.hasil_klasifikasi.peta.index', [
-                'geojson' => json_encode($geojson),
-                'provinsis' => $provinsis,
-                'kabupatens' => $kabupatens,
-                'kecamatans' => $kecamatans,
-                'resikoOptions' => $resikoOptions,
-                'selectedProvinsi' => $request->filter_provinsi,
-                'selectedKabupaten' => $request->filter_kabupaten,
-                'selectedKecamatan' => $request->filter_kecamatan,
-                'selectedResiko' => $request->filter_resiko
-            ]);
-
-        } catch (\Exception $e) {
-            \Log::error('Error in map method: ' . $e->getMessage());
-            \Log::error($e->getTraceAsString());
-            
-            return response()->view('errors.custom', [
-                'message' => 'Terjadi kesalahan saat memuat peta: ' . $e->getMessage()
-            ], 500);
+        // Filter Provinsi
+        if ($request->filled('filter_provinsi')) {
+            $query->whereHas('wilayah', function($q) use ($request) {
+                $q->where('provinsi', strtoupper($request->filter_provinsi));
+            });
         }
+
+        // Filter Kabupaten
+        if ($request->filled('filter_kabupaten')) {
+            $query->whereHas('wilayah', function($q) use ($request) {
+                $q->where('kabupaten', strtoupper($request->filter_kabupaten));
+            });
+        }
+
+        // Filter Kecamatan
+        if ($request->filled('filter_kecamatan')) {
+            $query->whereHas('wilayah', function($q) use ($request) {
+                $q->where('kecamatan', strtoupper($request->filter_kecamatan));
+            });
+        }
+
+        // Filter Risiko
+        if ($request->filled('filter_resiko')) {
+            $query->where('resiko_wilayah', $request->filter_resiko);
+        }
+
+        // Filter Tahun
+        if ($request->filled('filter_tahun') && is_numeric($request->filter_tahun)) {
+            $query->whereYear('periode', $request->filter_tahun);
+        }
+
+        // Ambil data terbaru per wilayah
+        $resikoData = $query->orderBy('created_at', 'desc')
+            ->get()
+            ->groupBy('id_wilayah')
+            ->map(function ($items) {
+                return $items->first(); // Ambil data terbaru per wilayah
+            })
+            ->keyBy(function ($item) {
+                return strtolower($item->wilayah->desa ?? '');
+            });
+
+        // Ambil semua tahun unik dari data periode
+        $tahunOptions = Resiko_Wilayah::whereNotNull('periode')
+            ->selectRaw('YEAR(periode) as tahun')
+            ->distinct()
+            ->orderByDesc('tahun')
+            ->pluck('tahun');
+
+        // Baca file GeoJSON
+        $geojsonPath = public_path('geojson/map.geojson');
+        if (!file_exists($geojsonPath)) {
+            return response()->view('errors.custom', ['message' => 'File GeoJSON tidak ditemukan'], 404);
+        }
+
+        $geojsonContent = file_get_contents($geojsonPath);
+        if (empty($geojsonContent)) {
+            return response()->view('errors.custom', ['message' => 'File GeoJSON kosong'], 404);
+        }
+
+        $geojson = json_decode($geojsonContent, true);
+
+        // Ambil daftar kelurahan unik dari GeoJSON
+        $kelurahans = collect($geojson['features'])
+            ->pluck('properties.NAMOBJ')
+            ->unique()
+            ->sort()
+            ->values()
+            ->all();
+
+        // Tambahkan properti resiko dan rekomendasi ke GeoJSON
+        foreach ($geojson['features'] as &$feature) {
+            $desaName = strtolower($feature['properties']['NAMOBJ'] ?? '');
+            if (isset($resikoData[$desaName])) {
+                $resikoWilayah = $resikoData[$desaName];
+                $feature['properties']['resiko_wilayah'] = $resikoWilayah->resiko_wilayah;
+                $feature['properties']['jumlah_pernikahan_dini'] = $resikoWilayah->jumlah_pernikahan_dini;
+
+                // Rekomendasi sesuai risiko
+                $feature['properties']['rekomendasi'] = match (strtolower($resikoWilayah->resiko_wilayah)) {
+                    'tinggi' => 'Perlu intervensi segera melalui sosialisasi dan pendampingan keluarga.',
+                    'sedang' => 'Perlu pengawasan dan edukasi rutin bagi remaja dan orang tua.',
+                    'rendah' => 'Teruskan upaya preventif melalui pendidikan dan pemberdayaan.',
+                    default => 'Belum ada rekomendasi.',
+                };
+            } else {
+                $feature['properties']['resiko_wilayah'] = 'tidak tersedia';
+                $feature['properties']['jumlah_pernikahan_dini'] = 0;
+                $feature['properties']['rekomendasi'] = 'Belum ada data rekomendasi.';
+            }
+        }
+
+        // Data untuk dropdown filter
+        $provinsis = DataWilayah::select('provinsi')->distinct()->pluck('provinsi');
+        $kabupatens = DataWilayah::select('kabupaten')->distinct()->pluck('kabupaten');
+        $kecamatans = DataWilayah::select('kecamatan')->distinct()->pluck('kecamatan');
+        $resikoOptions = Resiko_Wilayah::select('resiko_wilayah')->distinct()->pluck('resiko_wilayah');
+
+        // Kirim ke view
+        return view('dashboard.hasil_klasifikasi.peta.index', [
+            'geojson' => json_encode($geojson),
+            'provinsis' => $provinsis,
+            'kabupatens' => $kabupatens,
+            'kecamatans' => $kecamatans,
+            'kelurahans' => $kelurahans,
+            'resikoOptions' => $resikoOptions,
+            'tahunOptions' => $tahunOptions,
+            'selectedProvinsi' => $request->filter_provinsi,
+            'selectedKabupaten' => $request->filter_kabupaten,
+            'selectedKecamatan' => $request->filter_kecamatan,
+            'selectedResiko' => $request->filter_resiko,
+            'selectedTahun' => $request->filter_tahun
+        ]);
+
+    } catch (\Exception $e) {
+        return response()->view('errors.custom', [
+            'message' => 'Terjadi kesalahan saat memuat peta: ' . $e->getMessage()
+        ], 500);
     }
-
-
+}
     public function index(Request $request){
     // Query dasar dengan relasi wilayah
     $query = Resiko_Wilayah::with('wilayah')
@@ -143,7 +169,7 @@ class HasilKlasifikasiController extends Controller
 
     // Filter: tahun
     if ($request->filled('filter_tahun')) {
-        $query->where('periode', $request->filter_tahun);
+        $query->whereYear('periode', $request->filter_tahun);
     }
 
     // Filter: kategori risiko
@@ -166,12 +192,24 @@ class HasilKlasifikasiController extends Controller
 }
 
 
-public function detail($id)
+public function detail(Request $request, $id)
 {
-    $data = DataWilayah::with(['wilayah','resiko_wilayah'])->findOrFail($id);
+    $data = DataWilayah::findOrFail($id);
 
-    // Pastikan pernikahan collection tidak null
-    $pernikahan = $data->wilayah ?? collect();
+    // Ambil data pernikahan
+    $pernikahanQuery = $data->pernikahan()->orderBy('tanggal_akad', 'desc');
+
+    if ($request->filled('filter_tahun')) {
+        $tahun = $request->filter_tahun;
+        $pernikahanQuery->whereYear('tanggal_akad', $tahun);
+    }
+
+    $pernikahan = $pernikahanQuery->get();
+
+    // Ambil resiko wilayah terbaru
+    $resiko_wilayah_terbaru = Resiko_Wilayah::where('id_wilayah', $id)
+        ->orderByDesc('periode')
+        ->first();
 
     $totalPernikahan = $pernikahan->count();
     $totalPernikahanDini = $pernikahan->where('kategori_pernikahan', 'Pernikahan Dini')->count();
@@ -179,10 +217,77 @@ public function detail($id)
     $rataUsiaSuami = $pernikahan->avg('usia_suami');
     $rataUsiaIstri = $pernikahan->avg('usia_istri');
 
+    // === KUMPULKAN SEMUA PENYEBAB ===
+    $daftar_penyebab = collect();
+
+    foreach ($pernikahan as $item) {
+        $hasil = \App\Models\HasilKlasifikasi::where('id_pernikahan', $item->id)->first();
+        if ($hasil && $hasil->penyebab) {
+            $penyebab_list = json_decode($hasil->penyebab, true);
+            if (is_array($penyebab_list)) {
+                foreach ($penyebab_list as $penyebab) {
+                    $daftar_penyebab->push($penyebab);
+                }
+            }
+        }
+    }
+
+    // Hitung jumlah masing-masing penyebab
+    $penyebab_terbanyak = $daftar_penyebab->countBy()->sortDesc();
+
+    // === Rekomendasi Berdasarkan Penyebab (Suami & Istri) ===
+    $rekomendasi = [];
+
+    foreach ($penyebab_terbanyak as $penyebab => $jumlah) {
+        // Pendidikan
+        if (str_contains($penyebab, 'Pendidikan Istri')) {
+            $rekomendasi[] = 'Dorong program beasiswa dan kelanjutan pendidikan perempuan.';
+        }
+
+        if (str_contains($penyebab, 'Pendidikan Suami')) {
+            $rekomendasi[] = 'Perkuat edukasi formal bagi laki-laki sebagai calon kepala keluarga.';
+        }
+
+        // Umur
+        if (str_contains($penyebab, 'Umur Istri')) {
+            $rekomendasi[] = 'Adakan penyuluhan usia ideal menikah untuk remaja putri.';
+        }
+
+        if (str_contains($penyebab, 'Umur Suami')) {
+            $rekomendasi[] = 'Sosialisasi kedewasaan usia nikah kepada remaja laki-laki.';
+        }
+
+        // Pekerjaan
+        if (str_contains($penyebab, 'Pekerjaan Istri')) {
+            $rekomendasi[] = 'Sediakan pelatihan kewirausahaan dan akses kerja untuk perempuan.';
+        }
+
+        if (str_contains($penyebab, 'Pekerjaan Suami')) {
+            $rekomendasi[] = 'Dorong program pelatihan kerja dan sertifikasi bagi pria muda.';
+        }
+
+        // Status
+        if (str_contains($penyebab, 'Status Istri') || str_contains($penyebab, 'Status Suami')) {
+            $rekomendasi[] = 'Sosialisasi pentingnya status legal dalam pernikahan kepada calon pasangan.';
+        }
+    }
+
+    // Hilangkan duplikat
+    $rekomendasi = array_unique($rekomendasi);
+
+    // Kirim ke view
     return view('dashboard.hasil_klasifikasi.detail_hasil', compact(
-        'data', 'totalPernikahan', 'totalPernikahanDini', 'rataUsiaSuami', 'rataUsiaIstri'
+        'data',
+        'totalPernikahan',
+        'totalPernikahanDini',
+        'rataUsiaSuami',
+        'rataUsiaIstri',
+        'resiko_wilayah_terbaru',
+        'penyebab_terbanyak',
+        'rekomendasi'
     ));
 }
+
 
 
 
@@ -238,7 +343,7 @@ public function chart(Request $request)
 
         if ($wilayahTerpilih || $tahunTerpilih) {
             $queryPerbandingan->join('pernikahan', 'hasil_klasifikasi.id_pernikahan', '=', 'pernikahan.id');
-            
+
             if ($wilayahTerpilih) {
                 $queryPerbandingan->join('data_wilayah', 'pernikahan.wilayah_id', '=', 'data_wilayah.id')
                                 ->where('data_wilayah.desa', $wilayahTerpilih);
@@ -266,7 +371,7 @@ public function chart(Request $request)
         $distribusiUsia = $queryUsia
             ->select(
                 DB::raw('
-                    CASE 
+                    CASE
                         WHEN usia_istri < 16 THEN "< 16 tahun"
                         WHEN usia_istri BETWEEN 16 AND 18 THEN "16-18 tahun"
                         ELSE "> 18 tahun"
@@ -345,9 +450,6 @@ public function chart(Request $request)
         return redirect()->back();
     }
 }
-
-
-
 
 public function graphView(Request $request)
 {
@@ -476,9 +578,6 @@ public function graphView(Request $request)
         'bulanData' => $bulanCounts
     ]);
 }
-
-
-
 public function exportExcel(Request $request){
      // Ambil data filter dari request
         $filters = [
@@ -584,7 +683,7 @@ public function store(Request $request)
         DB::beginTransaction();
 
         // Your existing store logic here
-        
+
         DB::commit();
         NotificationHelper::success('Data berhasil disimpan');
         return redirect()->route('hasil_klasifikasi.index');
@@ -602,7 +701,7 @@ public function update(Request $request, $id)
 
         $hasil = HasilKlasifikasi::findOrFail($id);
         // Your existing update logic here
-        
+
         DB::commit();
         NotificationHelper::success('Data berhasil diperbarui');
         return redirect()->route('hasil_klasifikasi.index');
@@ -620,7 +719,7 @@ public function destroy($id)
 
         $hasil = HasilKlasifikasi::findOrFail($id);
         $hasil->delete();
-        
+
         DB::commit();
         NotificationHelper::success('Data berhasil dihapus');
         return redirect()->route('hasil_klasifikasi.index');
@@ -629,6 +728,101 @@ public function destroy($id)
         NotificationHelper::error('Gagal menghapus data: ' . $e->getMessage());
         return redirect()->back();
     }
+}
+
+public function rekomendasi(Request $request)
+{
+    $tahun = $request->input('tahun');
+
+
+
+    // Dropdown Tahun
+    $daftarTahun = DB::table('resiko_wilayah')
+        ->selectRaw('DISTINCT LEFT(periode, 4) as tahun')
+        ->pluck('tahun');
+
+        if (!$tahun) {
+        $periodeTerbaru = DB::table('resiko_wilayah')
+            ->selectRaw('LEFT(periode, 4) as tahun')
+            ->orderByDesc('periode')
+            ->limit(1)
+            ->value('tahun');
+
+        $tahun = $periodeTerbaru;
+    }
+    if (!$daftarTahun->contains($tahun)) {
+        $daftarTahun->prepend($tahun);
+    }
+
+    // Ambil semua wilayah dengan pernikahan dan resiko_wilayah
+    $wilayah = DataWilayah::with([
+        'pernikahan' => function ($q) use ($tahun) {
+            if ($tahun) {
+                $q->whereYear('tanggal_akad', $tahun);
+            }
+        },
+        'resiko_wilayah' => function ($q) use ($tahun) {
+            if ($tahun) {
+                $q->where('periode', 'like', "$tahun%");
+            }
+        }
+    ])->get();
+
+
+    // Filter wilayah dengan risiko "Tinggi"
+    $wilayahBerisikoTinggi = $wilayah->filter(function ($item) {
+
+
+        if ($item->resiko_wilayah && $item->resiko_wilayah->isNotEmpty()) {
+            $resikoTahunIni = $item->resiko_wilayah->sortByDesc('periode')->first();
+
+            return $resikoTahunIni->resiko_wilayah === 'tinggi';
+        }
+
+
+        return false;
+    });
+
+
+    // Susun data rekomendasi
+    $data = $wilayahBerisikoTinggi->map(function ($item) {
+    $pernikahanDini = $item->pernikahan->filter(function ($p) {
+        return $p->hasilKlasifikasi && $p->hasilKlasifikasi->kategori_pernikahan === 'Pernikahan Dini';
+    });
+
+
+
+    $suamiDini = $pernikahanDini->filter(fn($p) => $p->usia_suami <= 19)->count();
+    $istriDini = $pernikahanDini->filter(fn($p) => $p->usia_istri <= 19)->count();
+    $genderDominan = $suamiDini > $istriDini ? 'Laki-laki' : 'Perempuan';
+
+    return [
+        'wilayah_id' => $item->id,
+        'nama_wilayah' => $item->desa,
+        'jumlah_pernikahan_dini' => $pernikahanDini->count(),
+        'usia_terendah_suami' => $pernikahanDini->min('usia_suami') ?? '-',
+        'usia_terendah_istri' => $pernikahanDini->min('usia_istri') ?? '-',
+        'pendidikan_dominan_suami' => $pernikahanDini->groupBy('pendidikan_suami')->sortByDesc(fn($g) => $g->count())->keys()->first() ?? '-',
+        'pendidikan_dominan_istri' => $pernikahanDini->groupBy('pendidikan_istri')->sortByDesc(fn($g) => $g->count())->keys()->first() ?? '-',
+        'gender_dominan' => $genderDominan,
+    ];
+})
+->filter(fn($item) => $item['jumlah_pernikahan_dini'] > 0)
+->sortByDesc('jumlah_pernikahan_dini')
+->values();
+
+
+
+
+    return view('dashboard.rekomendasi.index', [
+        'data' => $data,
+        'daftarTahun' => $daftarTahun,
+        'tahunDipilih' => $tahun
+    ]);
+}
+
+public function detail_rekomendasi(){
+    
 }
 
 }

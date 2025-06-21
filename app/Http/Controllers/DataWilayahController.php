@@ -87,16 +87,15 @@ class DataWilayahController extends Controller
             ], 200);
 
         } catch (\Illuminate\Validation\ValidationException $e) {
-            \Log::error('Validation error saat menambah wilayah: ' . json_encode($e->errors()));
+
             return response()->json([
                 'success' => false,
                 'message' => 'Data tidak valid',
                 'errors' => $e->errors()
             ], 422);
         } catch (\Exception $e) {
-            \Log::error('Error saat menambah wilayah: ' . $e->getMessage());
-            \Log::error($e->getTraceAsString());
-            
+
+
             return response()->json([
                 'success' => false,
                 'message' => 'Terjadi kesalahan: ' . $e->getMessage()
@@ -132,7 +131,7 @@ class DataWilayahController extends Controller
         $data = DataWilayah::findOrFail($id);
         $data->delete();
 
-        return redirect()->route('dashboard.data_wilayah.index')->with('success', 'Data berhasil dihapus.');
+        return redirect()->route('data_wilayah.index')->with('success', 'Data berhasil dihapus.');
     }
 
     public function tambahData()

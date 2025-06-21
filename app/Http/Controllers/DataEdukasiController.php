@@ -49,6 +49,7 @@ class DataEdukasiController extends Controller
 
     public function tambahDataPost(Request $request)
     {
+
         // Generate kode edukasi otomatis
         $last = DataEdukasi::latest('kd_edukasi')->first();
         $nextNumber = $last ? (int)substr($last->kd_edukasi, 3) + 1 : 1;
@@ -62,6 +63,7 @@ class DataEdukasiController extends Controller
             'gambar' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
             'kategori' => 'nullable|string' // kategori tetap ada
         ]);
+
 
         // Upload gambar jika ada
         if ($request->hasFile('gambar')) {

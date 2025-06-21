@@ -1,6 +1,25 @@
 @extends('layouts.app')
 
 @section('content')
+<style>
+    /* Match button heights with form controls */
+    .btn-sm {
+        padding: 0.25rem 0.5rem;
+        height: 31px;
+        line-height: 1.5;
+    }
+
+    .form-control-sm {
+        height: 31px;
+    }
+
+    /* Ensure dropdown button matches other buttons */
+    .dropdown .btn-sm {
+        display: inline-flex;
+        align-items: center;
+    }
+</style>
+
 <div class="col-md-12">
     <div class="card">
 
@@ -19,7 +38,6 @@
             <div class="card-header px-0 border-0">
                 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
                      <div class="dropdown">
-
                             <button class="btn btn-outline-secondary btn-round dropdown-toggle" type="button" data-bs-toggle="dropdown">
                                 <i class="fa fa-download"></i> Export
                             </button>
@@ -31,43 +49,53 @@
                                     <a href="{{ route('laporan.exportCsv', request()->only(['search','kategori_wilayah', 'wilayah_id', 'tahun'])) }}" class="dropdown-item">Export Excel (.csv)</a>
                                 </li>
                                 <li>
-                                    <a href="{{ route('laporan.exportPdf', request()->only(['search','kategori_wilayah', 'wilayah_id', 'tahun'])) }}" class="dropdown-item">Export PDF</a>
+                                    <a href="{{ route('laporan.exportPdf', request()->only(['search','kategori_wilayah', 'wilayah_id', 'tahun'])) }}" class="dropdown-item" target="_blank">Export PDF</a>
                                 </li>
                             </ul>
                         </div>
 
                     {{-- Bagian kanan: Filter --}}
                     <div class="d-flex flex-wrap gap-2">
-                        <form method="GET" action="{{ route('laporan.statistik') }}" class="d-flex align-items-center gap-2">
-                            <select name="wilayah_id" class="form-control">
-                                <option value="">Filter Wilayah</option>
-                                @foreach ($daftarWilayah as $w)
-                                    <option value="{{ $w->id }}" {{ request('wilayah_id') == $w->id ? 'selected' : '' }}>
-                                        {{ Str::ucfirst(Str::lower($w->desa)) }} - {{ Str::ucfirst(Str::lower($w->kecamatan)) }}
-                                    </option>
-                                @endforeach
-                            </select>
+                    <div class="d-flex flex-wrap align-items-center gap-2">
+    <form method="GET" action="{{ route('laporan.statistik') }}" class="d-flex align-items-center gap-2">
+        <select name="wilayah_id" class="form-control">
+            <option value="">Filter Wilayah</option>
+            @foreach ($daftarWilayah as $w)
+                <option value="{{ $w->id }}" {{ request('wilayah_id') == $w->id ? 'selected' : '' }}>
+                    {{ Str::ucfirst(Str::lower($w->desa)) }} - {{ Str::ucfirst(Str::lower($w->kecamatan)) }}
+                </option>
+            @endforeach
+        </select>
 
-                            <select name="tahun" class="form-control">
-                                <option value="">Filter Tahun</option>
-                                @foreach ($daftarTahun as $th)
-                                    <option value="{{ $th }}" {{ request('tahun') == $th ? 'selected' : '' }}>
-                                        {{ $th }}
-                                    </option>
-                                @endforeach
-                            </select>
+        <select name="tahun" class="form-control">
+            <option value="">Filter Tahun</option>
+            @foreach ($daftarTahun as $th)
+                <option value="{{ $th }}" {{ request('tahun') == $th ? 'selected' : '' }}>
+                    {{ $th }}
+                </option>
+            @endforeach
+        </select>
 
-                            <select name="kategori_wilayah" class="form-control">
-                                <option value="">Filter Kategori Wilayah</option>
-                                @foreach ($kategoriWilayah as $kw )
-                                <option value="{{ $kw->resiko_wilayah }}" {{ request('kategori_wilayah') == $kw->resiko_wilayah ? 'selected' : '' }}">
-                                    {{ ucfirst($kw->resiko_wilayah) }}
-                                </option>
-                                @endforeach
-                            </select>
+        <select name="kategori_wilayah" class="form-control">
+            <option value="">Filter Kategori Wilayah</option>
+            @foreach ($kategoriWilayah as $kw )
+            <option value="{{ $kw->resiko_wilayah }}" {{ request('kategori_wilayah') == $kw->resiko_wilayah ? 'selected' : '' }}">
+                {{ ucfirst($kw->resiko_wilayah) }}
+            </option>
+            @endforeach
+        </select>
 
-                            <button type="submit" class="btn btn-primary"><i class="fa fa-filter"></i> Filter</button>
-                        </form>
+        <button type="submit" class="btn btn-primary">
+            Filter
+        </button>
+    </form>
+
+    <a href="{{ route('laporan.statistik') }}" class="btn btn-secondary">
+        <i class="fas fa-sync"></i> Reset
+    </a>
+</div>
+
+
                     </div>
                 </div>
             </div>
@@ -190,8 +218,6 @@
     </div>
 </div>
 
-
-
 <div class="mt-5">
     <h4 class="fw-bold">Kasus Pernikahan Dini Berdasarkan Gender</h4>
     <div class="table-responsive">
@@ -215,8 +241,6 @@
         </table>
     </div>
 </div>
-
-
-        </div>
-    </div>
+</div>
+</div>
 @endsection

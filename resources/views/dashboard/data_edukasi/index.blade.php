@@ -64,7 +64,7 @@
                                             <span class="text-muted">-</span>
                                         @endif
                                     </td>
-                                    <td>{{ $dt->kategori ?? '-' }}</td>
+                                    <td>{{ $dt->kategori }}</td>
                                     <td>{{ $dt->pengguna->nama ?? '-' }}</td>
                                     <td>
                                         <div class="form-button-action">

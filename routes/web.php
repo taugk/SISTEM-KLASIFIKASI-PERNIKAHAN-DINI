@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\LoginController;
 use App\Http\Controllers\LaporanController;
+use App\Http\Controllers\clusteriController;
 use App\Http\Controllers\ModelAPIController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DataEdukasiController;
@@ -41,7 +42,7 @@ Route::middleware(['auth', 'role:admin'])->prefix('data_pernikahan')->name('data
     Route::get('/tambahData', [DataPernikahanController::class, 'tambahData'])->name('tambahData');
     Route::post('/tambahDataPost', [DataPernikahanController::class, 'tambahDataPost'])->name('tambahDataPost');
     Route::get('/{id}/editData', [DataPernikahanController::class, 'edit'])->name('edit');
-    Route::post('/update/{id}', [DataPernikahanController::class, 'update'])->name('update');
+    Route::put('/update/{id}', [DataPernikahanController::class, 'update'])->name('update');
     Route::delete('/{id}/deleteData', [DataPernikahanController::class, 'delete'])->name('delete');
     Route::get('/detailPasangan/{id}', [DataPernikahanController::class, 'detail'])->name('detail');
     Route::post('/import', [DataPernikahanController::class, 'import'])->name('upload');
@@ -151,6 +152,25 @@ Route::middleware(['auth', 'role:admin,kepala kua'])->prefix('laporan')->name('l
     Route::get('/exportExcel', [LaporanController::class, 'exportExcel'])->name('exportExcel');
     Route::get('/exportCsv', [LaporanController::class, 'exportCsv'])->name('exportCsv');
     Route::get('/exportPdf', [LaporanController::class, 'exportPdf'])->name('exportPdf');
+    Route::get('/laporan_akhir', [LaporanController::class, 'laporanAkhir'])->name('laporan_akhir');
+    Route::get('/laporan_akhir_pdf', [LaporanController::class, 'laporanAkhirPdf'])->name('print');
+});
+
+
+/*
+|--------------------------------------------------------------------------
+| Rekomendasi Penyuluhan
+|--------------------------------------------------------------------------
+*/
+
+Route::middleware(['auth', 'role:penyuluh,admin,kepala kua'])->prefix('rekomendasi_penyuluhan')->name('rekomendasi_penyuluhan.')->group(function () {
+    Route::get('/', [HasilKlasifikasiController::class, 'rekomendasi'])->name('index');
+    Route::get('/exportExcel', [HasilKlasifikasiController::class, 'exportExcel'])->name('exportExcel');
+    Route::get('/exportCsv', [HasilKlasifikasiController::class, 'exportCsv'])->name('exportCsv');
+    Route::get('/exportPdf', [HasilKlasifikasiController::class, 'exportPdf'])->name('exportPdf');
+    Route::get('/{id}/detail_rekomendasi', [HasilKlasifikasiController::class, 'detailRekomendasi'])->name('detail_rekomendasi');
+    Route::get('/rekomendasi_penyuluhan', [HasilKlasifikasiController::class, 'rekomendasiPenyuluhan'])->name('rekomendasi_penyuluhan');
+    Route::get('/rekomendasi_penyuluhan_pdf', [HasilKlasifikasiController::class, 'rekomendasiPenyuluhanPdf'])->name('rekomendasi_penyuluhan_pdf');
 });
 
 /*
@@ -169,7 +189,8 @@ Route::prefix('api/wilayah')->group(function () {
 });
 
 
-
+// clustering Routes
+Route::get('/clustering', [clusteriController::class, 'index'])->name('clustering.index');
 
 
 

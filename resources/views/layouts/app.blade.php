@@ -47,17 +47,14 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 
-        <!-- Menambahkan CSS Tagify -->
+    <!-- Menambahkan CSS Tagify -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/tagify/4.4.0/tagify.min.css" rel="stylesheet" />
 
     <!-- Menambahkan JS Tagify -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tagify/4.4.0/tagify.min.js"></script>
 
     <!-- FullCalendar CSS -->
-<link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" rel="stylesheet" />
-
-    <!-- Toastr CSS -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" rel="stylesheet" />
 
   </head>
   <body>
@@ -320,6 +317,29 @@
                 text: '{{ session('error') }}',
                 confirmButtonText: 'Coba Lagi'
             });
+        @elseif(session('info'))
+            Swal.fire({
+                icon: 'info',
+                title: 'Informasi',
+                text: '{{ session('info') }}',
+                confirmButtonText: 'OK'
+            });
+        @elseif(session('warning'))
+            Swal.fire({
+                icon: 'warning',
+                title: 'Peringatan',
+                text: '{{ session('warning') }}',
+                confirmButtonText: 'OK'
+            });
+        @endif
+
+        @if($errors->any())
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                html: '@foreach($errors->all() as $error){{ $error }}<br>@endforeach',
+                confirmButtonText: 'OK'
+            });
         @endif
     </script>
 
@@ -468,52 +488,5 @@
       });
     </script>
 
-    <!-- Toastr JS -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
-
-    <script>
-        // Toastr configuration
-        toastr.options = {
-            "closeButton": true,
-            "debug": false,
-            "newestOnTop": true,
-            "progressBar": true,
-            "positionClass": "toast-top-right",
-            "preventDuplicates": false,
-            "onclick": null,
-            "showDuration": "300",
-            "hideDuration": "1000",
-            "timeOut": "5000",
-            "extendedTimeOut": "1000",
-            "showEasing": "swing",
-            "hideEasing": "linear",
-            "showMethod": "fadeIn",
-            "hideMethod": "fadeOut"
-        };
-
-        // Show notification if exists in session
-        @if(Session::has('success'))
-            toastr.success("{{ Session::get('success') }}", "Sukses");
-        @endif
-
-        @if(Session::has('error'))
-            toastr.error("{{ Session::get('error') }}", "Error");
-        @endif
-
-        @if(Session::has('info'))
-            toastr.info("{{ Session::get('info') }}", "Informasi");
-        @endif
-
-        @if(Session::has('warning'))
-            toastr.warning("{{ Session::get('warning') }}", "Peringatan");
-        @endif
-
-        // Show validation errors
-        @if($errors->any())
-            @foreach($errors->all() as $error)
-                toastr.error("{{ $error }}", "Error");
-            @endforeach
-        @endif
-    </script>
   </body>
 </html>

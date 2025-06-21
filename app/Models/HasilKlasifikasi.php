@@ -18,6 +18,8 @@ class HasilKlasifikasi extends Model
         'confidence',
         'akurasi',
         'id_pernikahan',
+        'penyebab',
+        'dampak',
     ];
 
     public function pernikahan()

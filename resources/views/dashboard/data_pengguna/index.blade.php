@@ -84,7 +84,7 @@
                                     <td>{{ $loop->iteration }}</td>
                                     <td>
                                         @if ($dt->foto)
-                                            <img src="{{ asset('storage/' . $dt->foto) }}" class="img-thumbnail" alt="Foto {{ $dt->nama }}" style="max-width: 100px; max-height: 100px;">
+                                            <img src="{{ asset('storage/foto/' . $dt->foto) }}" class="img-thumbnail" alt="Foto {{ $dt->nama }}" style="max-width: 100px; max-height: 100px;">
                                             @else
                                             <img src="{{ asset('assets/img/user_icon.png') }}" alt="" srcset="" style="max-width: 100px; max-height: 100px;">
                                         @endif

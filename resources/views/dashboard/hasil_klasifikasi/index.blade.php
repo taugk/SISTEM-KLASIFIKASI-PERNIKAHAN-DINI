@@ -64,8 +64,12 @@
                             <select name="filter_tahun" class="form-control">
                                 <option value="">Filter by Tahun</option>
                                 @foreach ($tahun as $th)
-                                    <option value="{{ $th->tahun }}" {{ request()->filter_tahun == $th->tahun ? 'selected' : '' }}>
-                                        {{ $th->tahun }}
+                                     @php
+                                        // Ekstrak tahun dari tanggal lengkap jika perlu
+                                        $tahunOnly = \Carbon\Carbon::parse($th->tahun)->format('Y');
+                                    @endphp
+                                    <option value="{{ $tahunOnly }}" {{ request()->filter_tahun == $tahunOnly ? 'selected' : '' }}>
+                                        {{ $tahunOnly }}
                                     </option>
                                 @endforeach
                             </select>

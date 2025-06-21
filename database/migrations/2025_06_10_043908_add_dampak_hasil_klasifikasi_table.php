@@ -11,8 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('kategori_edukasi', function (Blueprint $table) {
-            $table->string('deskripsi')->nullable()->change();
+         Schema::table('hasil_klasifikasi', function (Blueprint $table) {
+            $table->string('dampak')->nullable()->after('penyebab');
+            $table->longText('dampak')->change();
+
         });
     }
 
@@ -21,8 +23,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('kategori_edukasi', function (Blueprint $table) {
-            $table->string('deskripsi')->nullable(false)->change();
+        Schema::table('hasil_klasifikasi', function (Blueprint $table) {
+            $table->dropColumn('dampak');
         });
     }
 };

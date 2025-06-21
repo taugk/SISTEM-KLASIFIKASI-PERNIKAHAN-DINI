@@ -11,8 +11,9 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('kategori_edukasi', function (Blueprint $table) {
-            //
+        Schema::table('hasil_klasifikasi', function (Blueprint $table) {
+            $table->text('penyebab')->nullable()->after('confidence');
+            $table->float('akurasi')->nullable()->after('penyebab');
         });
     }
 
@@ -21,8 +22,9 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('kategori_edukasi', function (Blueprint $table) {
-            //
+        Schema::table('hasil_klasifikasi', function (Blueprint $table) {
+            $table->dropColumn('penyebab');
+            $table->dropColumn('akurasi');
         });
     }
 };

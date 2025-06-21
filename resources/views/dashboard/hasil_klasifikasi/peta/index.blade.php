@@ -18,7 +18,7 @@
                         <li class="nav-item">Peta Sebaran</li>
                     </ul>
                 </div>
-                <button onclick="printMap()" class="btn btn-primary d-print-none">
+                <button type="button" id="btnCetakPeta" class="btn btn-primary d-print-none">
                     <i class="fas fa-print"></i> Cetak Peta
                 </button>
             </div>
@@ -27,41 +27,29 @@
             <div class="card mb-4 d-print-none">
                 <div class="card-body">
                     <form method="GET" action="{{ route('hasil_klasifikasi.peta_sebaran') }}" class="row g-3">
-                        <div class="col-md-3">
-                            <label for="filter_provinsi" class="form-label">Provinsi</label>
-                            <select name="filter_provinsi" id="filter_provinsi" class="form-control">
-                                <option value="">Semua Provinsi</option>
-                                @foreach($provinsis as $provinsi)
-                                    <option value="{{ $provinsi }}" {{ $selectedProvinsi == $provinsi ? 'selected' : '' }}>
-                                        {{ $provinsi }}
+                        <div class="col-md-2">
+                            <select name="filter_tahun" class="form-select">
+                                <option value="">Semua Tahun</option>
+                                @foreach ($tahunOptions as $tahun)
+                                    <option value="{{ $tahun }}" {{ $selectedTahun == $tahun ? 'selected' : '' }}>
+                                        {{ $tahun }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+
+                            <select name="filter_kelurahan" id="filter_kelurahan" class="form-control">
+                                <option value="">Semua Kelurahan</option>
+                                @foreach($kelurahans as $kelurahan)
+                                    <option value="{{ $kelurahan }}" {{ request('filter_kelurahan') == $kelurahan ? 'selected' : '' }}>
+                                        {{ $kelurahan }}
                                     </option>
                                 @endforeach
                             </select>
                         </div>
                         <div class="col-md-3">
-                            <label for="filter_kabupaten" class="form-label">Kabupaten</label>
-                            <select name="filter_kabupaten" id="filter_kabupaten" class="form-control">
-                                <option value="">Semua Kabupaten</option>
-                                @foreach($kabupatens as $kabupaten)
-                                    <option value="{{ $kabupaten }}" {{ $selectedKabupaten == $kabupaten ? 'selected' : '' }}>
-                                        {{ $kabupaten }}
-                                    </option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="col-md-3">
-                            <label for="filter_kecamatan" class="form-label">Kecamatan</label>
-                            <select name="filter_kecamatan" id="filter_kecamatan" class="form-control">
-                                <option value="">Semua Kecamatan</option>
-                                @foreach($kecamatans as $kecamatan)
-                                    <option value="{{ $kecamatan }}" {{ $selectedKecamatan == $kecamatan ? 'selected' : '' }}>
-                                        {{ $kecamatan }}
-                                    </option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="col-md-3">
-                            <label for="filter_resiko" class="form-label">Tingkat Resiko</label>
+
                             <select name="filter_resiko" id="filter_resiko" class="form-control">
                                 <option value="">Semua Resiko</option>
                                 @foreach($resikoOptions as $resiko)
@@ -71,7 +59,7 @@
                                 @endforeach
                             </select>
                         </div>
-                        <div class="col-12">
+                        <div class="col-md-3 d-flex align-items-center gap-2">
                             <button type="submit" class="btn btn-primary">
                                 <i class="fas fa-filter"></i> Filter
                             </button>
@@ -118,7 +106,7 @@
             </div>
         </div>
     </div>
-</div>
+
 @endsection
 
 @push('styles')
@@ -170,6 +158,29 @@
         background-color: white;
     }
 
+    /* Form styles */
+    .form-control {
+        height: 38px;
+        padding: .375rem .75rem;
+        font-size: 1rem;
+        font-weight: 400;
+        line-height: 1.5;
+        color: #212529;
+        background-color: #fff;
+        background-clip: padding-box;
+        border: 1px solid #ced4da;
+        border-radius: .25rem;
+        transition: border-color .15s ease-in-out,box-shadow .15s ease-in-out;
+    }
+
+    .form-control:focus {
+        color: #212529;
+        background-color: #fff;
+        border-color: #86b7fe;
+        outline: 0;
+        box-shadow: 0 0 0 0.25rem rgba(13,110,253,.25);
+    }
+
     /* Print styles */
     @media print {
         @page {
@@ -212,7 +223,7 @@
 $(document).ready(function() {
     // Initialize the map
     var map = L.map('map').setView([-6.9755, 108.4828], 13);
-    
+
     // Add the OpenStreetMap tiles
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
@@ -229,9 +240,18 @@ $(document).ready(function() {
                                     '#008000';
     }
 
+    function getBadgeClass(resiko) {
+        switch(resiko.toLowerCase()) {
+            case 'tinggi': return 'badge bg-danger';
+            case 'sedang': return 'badge bg-warning text-dark';
+            case 'rendah': return 'badge bg-success';
+            default: return 'badge bg-secondary';
+        }
+    }
+
     function style(feature) {
         return {
-            fillColor: getColor(feature.properties.resiko),
+            fillColor: getColor(feature.properties.resiko_wilayah),
             weight: 2,
             opacity: 1,
             color: 'white',
@@ -240,9 +260,26 @@ $(document).ready(function() {
         };
     }
 
-    // Add GeoJSON layer
-    var geojsonLayer = L.geoJSON(geojsonData, {
+    // Function to filter features based on selected criteria
+    function filterFeatures(feature) {
+        const selectedKelurahan = $('#filter_kelurahan').val();
+        const selectedResiko = $('#filter_resiko').val();
+
+        if (selectedKelurahan && feature.properties.NAMOBJ !== selectedKelurahan) return false;
+        if (selectedResiko && feature.properties.resiko_wilayah !== selectedResiko) return false;
+
+        return true;
+    }
+
+    // Function to update map with filtered data
+    function updateMap() {
+        if (window.geojsonLayer) {
+            map.removeLayer(window.geojsonLayer);
+        }
+
+        window.geojsonLayer = L.geoJSON(geojsonData, {
         style: style,
+            filter: filterFeatures,
         onEachFeature: function(feature, layer) {
             // Get properties with default values
             const properties = feature.properties || {};
@@ -252,17 +289,8 @@ $(document).ready(function() {
             const provinsi = properties.WADMPR || 'Data tidak tersedia';
             const resiko = properties.resiko_wilayah || 'tidak tersedia';
             const jumlahPernikahanDini = properties.jumlah_pernikahan_dini || 0;
+            const rekomendasi = properties.rekomendasi || 'Data tidak tersedia';
 
-            // Get badge class based on risk level
-            const getBadgeClass = (resiko) => {
-                switch(resiko.toLowerCase()) {
-                    case 'tinggi': return 'badge bg-danger';
-                    case 'sedang': return 'badge bg-warning text-dark';
-                    case 'rendah': return 'badge bg-success';
-                    default: return 'badge bg-secondary';
-                }
-            };
-            
             var popupContent = `
                 <div class="card shadow-sm border-0" style="width: 160px;">
                     <div class="card-header py-1 px-2 bg-light">
@@ -294,6 +322,7 @@ $(document).ready(function() {
                                     ${jumlahPernikahanDini}
                                 </span>
                             </div>
+
                         </div>
                     </div>
                 </div>
@@ -302,67 +331,189 @@ $(document).ready(function() {
         }
     }).addTo(map);
 
-    // Fit the map to the GeoJSON bounds
-    map.fitBounds(geojsonLayer.getBounds());
-
-    // Cascade dropdowns
-    $('#filter_provinsi').change(function() {
-        var provinsi = $(this).val();
-        if (provinsi) {
-            $('#filter_kabupaten').prop('disabled', false);
-            // You can add AJAX call here to load kabupaten based on provinsi
-        } else {
-            $('#filter_kabupaten').prop('disabled', true).val('');
-            $('#filter_kecamatan').prop('disabled', true).val('');
+        // Fit map to filtered features
+        const bounds = window.geojsonLayer.getBounds();
+        if (bounds.isValid()) {
+            map.fitBounds(bounds);
         }
-    });
+    }
 
-    $('#filter_kabupaten').change(function() {
-        var kabupaten = $(this).val();
-        if (kabupaten) {
-            $('#filter_kecamatan').prop('disabled', false);
-            // You can add AJAX call here to load kecamatan based on kabupaten
-        } else {
-            $('#filter_kecamatan').prop('disabled', true).val('');
-        }
+    // Initial map update
+    updateMap();
+
+    // Update map when filters change
+    $('#filter_kelurahan, #filter_resiko').change(function() {
+        updateMap();
     });
 
     // Print function
-    window.printMap = function() {
-        // Create print-specific content
-        const timestamp = new Date().toLocaleString();
-        const printHeader = document.createElement('div');
-        printHeader.className = 'd-none d-print-block text-center mb-4';
-        printHeader.innerHTML = `
-            <h4 class="mb-1">Peta Sebaran Resiko Pernikahan Dini</h4>
-            <p class="mb-0">${timestamp}</p>
-        `;
+    $('#btnCetakPeta').click(function() {
+        // Force map to refresh before capturing
+        map.invalidateSize();
 
-        // Add print header temporarily
-        const mapContainer = document.getElementById('map').parentElement;
-        mapContainer.insertBefore(printHeader, document.getElementById('map'));
+        // Wait for map to fully load
+        setTimeout(function() {
+            // Capture the map
+            html2canvas(document.getElementById('map'), {
+                useCORS: true,
+                allowTaint: true,
+                scrollX: 0,
+                scrollY: 0,
+                scale: 2
+            }).then(function(canvas) {
+                // Get filter values
+                var kelurahan = $('#filter_kelurahan option:selected').text() || 'Semua Kelurahan';
+                var resiko = $('#filter_resiko option:selected').text() || 'Semua Tingkat Resiko';
 
-        // Trigger print
-        window.print();
+                // Get filtered data for statistics
+                var filteredFeatures = geojsonData.features.filter(filterFeatures);
+                var stats = {
+                    tinggi: 0,
+                    sedang: 0,
+                    rendah: 0,
+                    total_pernikahan_dini: 0
+                };
 
-        // Remove print header after printing
-        setTimeout(() => {
-            printHeader.remove();
+                // Calculate statistics
+                filteredFeatures.forEach(function(feature) {
+                    var resiko = feature.properties.resiko_wilayah;
+                    if (stats.hasOwnProperty(resiko)) {
+                        stats[resiko]++;
+                    }
+                    stats.total_pernikahan_dini += parseInt(feature.properties.jumlah_pernikahan_dini || 0);
+                });
+
+                // Create table rows
+                var tableRows = filteredFeatures.map(function(feature) {
+                    var props = feature.properties;
+                    return `
+                        <tr>
+                            <td>${props.NAMOBJ || '-'}</td>
+                            <td>${props.WADMKC || '-'}</td>
+                            <td>${props.WADMKK || '-'}</td>
+                            <td>${props.WADMPR || '-'}</td>
+                            <td><span class="${getBadgeClass(props.resiko_wilayah)}">${props.resiko_wilayah}</span></td>
+                            <td class="text-end">${props.jumlah_pernikahan_dini || 0}</td>
+                        </tr>
+                    `;
+                }).join('');
+
+                // Create print window
+                var printWindow = window.open('', '_blank');
+
+                // Write the content to the print window
+                printWindow.document.write(`
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <title>Peta Sebaran Resiko Pernikahan Dini</title>
+                        <link rel="stylesheet" href="{{ asset('assets/css/bootstrap.min.css') }}">
+                        <style>
+                            body { padding: 20px; font-family: Arial, sans-serif; }
+                            .map-container { margin: 20px 0; }
+                            .map-container img { width: 100%; height: auto; }
+                            @media print {
+                                @page { size: landscape; margin: 1cm; }
+                                .no-print { display: none; }
+                            }
+                        </style>
+                    </head>
+                    <body>
+                        <div class="container-fluid">
+                            <h4 class="text-center mb-3">Peta Sebaran Resiko Pernikahan Dini</h4>
+                            <p class="text-center mb-4">${new Date().toLocaleDateString('id-ID', {
+                                day: 'numeric',
+                                month: 'long',
+                                year: 'numeric'
+                            })}</p>
+
+                            <div class="card mb-4">
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <strong>Kelurahan:</strong> ${kelurahan}
+                                        </div>
+                                        <div class="col-md-6">
+                                            <strong>Tingkat Resiko:</strong> ${resiko}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="map-container">
+                                <img src="${canvas.toDataURL()}" alt="Peta Sebaran">
+                            </div>
+
+                            <div class="card mb-4">
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-3">
+                                            <div class="card bg-danger text-white">
+                                                <div class="card-body">
+                                                    <h6>Resiko Tinggi</h6>
+                                                    <h4>${stats.tinggi} area</h4>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="card bg-warning">
+                                                <div class="card-body">
+                                                    <h6>Resiko Sedang</h6>
+                                                    <h4>${stats.sedang} area</h4>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="card bg-success text-white">
+                                                <div class="card-body">
+                                                    <h6>Resiko Rendah</h6>
+                                                    <h4>${stats.rendah} area</h4>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="card bg-info">
+                                                <div class="card-body">
+                                                    <h6>Total Pernikahan Dini</h6>
+                                                    <h4>${stats.total_pernikahan_dini}</h4>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="table-responsive">
+                                <table class="table table-bordered table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>Desa/Kelurahan</th>
+                                            <th>Kecamatan</th>
+                                            <th>Kabupaten</th>
+                                            <th>Provinsi</th>
+                                            <th>Tingkat Resiko</th>
+                                            <th class="text-end">Jumlah Pernikahan Dini</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${tableRows}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div class="mt-4 text-center no-print">
+                                <button onclick="window.print()" class="btn btn-primary">
+                                    <i class="fas fa-print"></i> Cetak
+                                </button>
+                            </div>
+                        </div>
+                    </body>
+                    </html>
+                `);
+
+                printWindow.document.close();
+            });
         }, 1000);
-    };
-
-    // Handle print media changes
-    let mediaQueryList = window.matchMedia('print');
-    mediaQueryList.addListener(function(mql) {
-        if (mql.matches) {
-            // Before print
-            map.invalidateSize();
-        } else {
-            // After print
-            setTimeout(() => {
-                map.invalidateSize();
-            }, 500);
-        }
     });
 });
 </script>
